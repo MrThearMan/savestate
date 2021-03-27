@@ -1,4 +1,10 @@
-"""Storage for arbitrary python objects inspired by SemiDMB and shelve."""
+"""Storage for arbitrary python objects inspired by SemiDMB and Shelve.
+
+Data structure and byte sizes are as follows:
+
+⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀x⠀⠀⠀⠀y⠀⠀⠀⠀⠀⠀4⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀x⠀⠀⠀⠀y⠀⠀⠀⠀⠀⠀4
+<header><key_size><valsize><key><val><checksum><key_size><valsize><key><val><checksum>...
+"""
 
 import os
 import mmap
@@ -45,7 +51,6 @@ DELETED: int = 0
 """Signifies item has been deleated."""
 
 # Header Info
-
 FILE_IDENTIFIER: bytes = b'DBMW'  # \x44\x42\x4d\x57 in hex
 """Magic identifier for this type of file."""
 FILE_FORMAT_VERSION: int = 1
@@ -54,7 +59,7 @@ PICKLE_PROTOCOL: int = 5
 """Pickle protocol used if necessary."""
 
 # Struct (un)packing formats. Make sure that the length in bytes when
-# converted from the format string according to this table:
+# a value is converted by the format string according to this table:
 # https://docs.python.org/3/library/struct.html#format-characters
 # ... is the same as the size marked here.
 
@@ -75,7 +80,7 @@ class _DBMWReadOnly:
         """Encapsulate a DBMW file in read-only mode, raises DBMError if file does not exist.
 
         :param filename: Name of the file to open.
-        :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call.
+        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         """
 
         if not os.path.isfile(filename):
@@ -161,7 +166,7 @@ class _DBMWReadOnly:
         """Get value for key in db."""
         return self[key]
 
-    def iter_data(self, filename: str) -> Generator[tuple[bytes, int, int], None, None]:
+    def iter_file_data(self, filename: str) -> Generator[tuple[bytes, int, int], None, None]:
         """Iterate over the stored data.
 
         Accepts a filename and iterates over the data bytes stored in it.
@@ -208,21 +213,19 @@ class _DBMWReadOnly:
 
     @staticmethod
     def _convert_to_bytes(value: Any) -> bytes:
-        """Converts to bytes with either utf encoding or pickle
+        """Converts to bytes with either utf-8 encoding or pickle
 
-        :raises pickle.PicklingError: Value is unpicklable
+        :raises pickle.PicklingError: Value is not picklable
         """
 
-        if isinstance(value, str):
-            return value.encode("utf-8")
+        if isinstance(value, bytes):
+            return value
 
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, (str, int, float)):
             return str(value).encode("utf-8")
 
-        elif not isinstance(value, bytes):
+        else:
             return pickle.dumps(value, protocol=PICKLE_PROTOCOL)
-
-        return value
 
     @staticmethod
     def _convert_from_bytes(value: bytes) -> Any:
@@ -286,7 +289,7 @@ class _DBMWReadOnly:
         """This method is only used upon instantiation to populate the in memory index."""
         index = {}
 
-        for key_name, offset, val_size in self.iter_data(filename):
+        for key_name, offset, val_size in self.iter_file_data(filename):
             if val_size == DELETED:
                 # Due to the append only nature of the db, when values would be deleted from the file,
                 # a new dataint is appended to the file with the same key but the value size set to 'DELETED' instead.
@@ -306,7 +309,7 @@ class _DBMWCreate(_DBMWReadOnly):
         """Encapsulate a DBMW file in read-write mode, creating a new database if none exists with given filename.
 
         :param filename: Name of the file to open.
-        :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call.
+        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
         """
 
@@ -346,7 +349,7 @@ class _DBMWCreate(_DBMWReadOnly):
         os.write(self._data_file_descriptor, blob)
 
         # Update the in memory index.
-        self._index[key] = (self._current_offset + len(keyval_size) + key_size, val_size)
+        self._index[key] = (self._current_offset + KEYVAL_SIZE + key_size, val_size)
         self._current_offset += len(blob)
 
     def __delitem__(self, key: Any):
@@ -373,14 +376,16 @@ class _DBMWCreate(_DBMWReadOnly):
 
         self._current_offset += len(blob)
 
-    def close(self):
+    def close(self, compact: bool = False):
         """Close the db.
 
         The data is synced to disk and the db is closed.
         Once the db has been closed, no further reads or writes are allowed.
+
+        :param compact: Override compaction setting from open.
         """
 
-        if self._compact:
+        if self._compact or compact:
             self.compact()
 
         self.sync()
@@ -409,8 +414,9 @@ class _DBMWCreate(_DBMWReadOnly):
         As a general rule of thumb, the more non-read updates you do, the more space you'll save when you compact.
         """
 
-        # Copy the file and close both of them
+        # Copy the file and close it and the current file
         new_db = self.copy(self._dbname + "_copy")
+        new_db.close()
         os.close(self._data_file_descriptor)
 
         # Rename the new file to the current file, replacing it in the process.
@@ -463,6 +469,8 @@ class _DBMWCreate(_DBMWReadOnly):
     def copy(self, new_filename: str):
         """Creates a copy of this db by writing all the keys from this db to the new db."""
 
+        assert new_filename != self._dbname, "Copy can't have the same filename as the original."
+
         new_db = self.__class__(filename=new_filename, verify_checksums=self._verify_checksums, compact=self._compact)
 
         for key in self._index:
@@ -480,7 +488,10 @@ class _DBMWCreate(_DBMWReadOnly):
     @staticmethod
     def _rename(from_file: str, to_file: str):
         """Similar to os.rename(), but that doesn't work if the 'to_file'
-        exists so we have to use our own version that supports atomic renames."""
+        exists so we have to use our own version that supports atomic renames.
+
+        :raises OSError: File can't be renamed.
+        """
 
         rc = kernel32.ReplaceFile(LPCTSTR(to_file), LPCTSTR(from_file), None, 0, None, None)
         if rc == 0:
@@ -510,7 +521,7 @@ class _DBMWReadWrite(_DBMWCreate):
         """Encapsulate a DBMW file in read-write mode, raises DBMError if file does not exist.
 
         :param filename: Name of the file to open.
-        :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call.
+        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
         """
 
@@ -527,7 +538,7 @@ class _DBMWNew(_DBMWCreate):
         """Encapsulate a DBMW file in read-write mode, creating a new file even if one exists for given filename.
 
         :param filename: Name of the file to open.
-        :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call.
+        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
         """
 

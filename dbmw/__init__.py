@@ -1,6 +1,6 @@
 """DBM file storage for windows."""
 
-from .db import (
+from .dbmw import (
     open,
     DBMError,
     DBMLoadError,
