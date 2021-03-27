@@ -382,7 +382,7 @@ class _DBMWCreate(_DBMWReadOnly):
         The data is synced to disk and the db is closed.
         Once the db has been closed, no further reads or writes are allowed.
 
-        :param compact: Override compaction setting from open.
+        :param compact: Enable compaction here, even if it was not enabled by open.
         """
 
         if self._compact or compact:
