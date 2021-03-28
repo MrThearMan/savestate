@@ -1,4 +1,4 @@
-"""Storage for arbitrary python objects inspired by SemiDBM and Shelve.
+"""Persistent storage for arbitrary python objects inspired by SemiDBM and Shelve.
 
 Data structure and byte sizes are as follows:
 ⠀\n
@@ -11,17 +11,16 @@ Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val:
 """
 
 import os
+import sys
 import mmap
 import ntpath
 import struct
-import ctypes
 import builtins
 import pickle
 import warnings
 
 from typing import Literal, Any, Mapping, Iterator, Generator
 from binascii import crc32
-from ctypes.wintypes import LPVOID, DWORD
 
 __all__ = [
     "open",
@@ -45,13 +44,12 @@ class DBMChecksumError(DBMError):
 
 
 # File handing flags
-DATA_OPEN_FLAGS = os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_BINARY
-DATA_OPEN_FLAGS_READONLY = os.O_RDONLY | os.O_BINARY
-
-# File atomic rename stuff
-LPCTSTR = ctypes.c_wchar_p
-kernel32 = ctypes.windll.kernel32
-kernel32.ReplaceFile.argtypes = [LPCTSTR, LPCTSTR, LPCTSTR, DWORD, LPVOID, LPVOID]
+if sys.platform.startswith("win"):
+    DATA_OPEN_FLAGS = os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_BINARY
+    DATA_OPEN_FLAGS_READONLY = os.O_RDONLY | os.O_BINARY
+else:
+    DATA_OPEN_FLAGS = os.O_RDWR | os.O_CREAT | os.O_APPEND
+    DATA_OPEN_FLAGS_READONLY = os.O_RDONLY
 
 DELETED: int = 0
 """Signifies item has been deleated."""
@@ -79,17 +77,19 @@ KEYVAL_IND_SIZE: int = 8
 class _DBMWReadOnly:
     """DBMW file in read-only mode, error if doesn't exist."""
 
-    def __init__(self, filename: str, verify_checksums: bool = False):
+    def __init__(self, filename: str, verify_checksums: bool = False, dbm_mode: bool = False):
         """Encapsulate a DBMW file in read-only mode, raises DBMError if file does not exist.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
+        :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         if not os.path.isfile(filename):
             raise DBMError(f"Not a file: {filename}")
 
         self._dbname = filename
+        self._dbm_mode = dbm_mode
         self._data_flags = DATA_OPEN_FLAGS_READONLY
         self._verify_checksums = verify_checksums
 
@@ -100,7 +100,7 @@ class _DBMWReadOnly:
         self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
         self._current_offset: int = os.lseek(self._data_file_descriptor, 0, os.SEEK_END)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         selftype = type(self)
         flag = ""
         if selftype == _DBMWReadOnly:
@@ -113,11 +113,11 @@ class _DBMWReadOnly:
             flag = "n"
 
         if hasattr(self, "_compact"):
-            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact})"
+            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact}, dbm_mode={self._dbm_mode})"
         else:
-            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums})"
+            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, dbm_mode={self._dbm_mode})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "DBMW file with content: {" + ", ".join([f"'{key}': '{value}'" for key, value in self.items()]) + "}"
 
     def __getitem__(self, key: Any) -> Any:
@@ -128,7 +128,10 @@ class _DBMWReadOnly:
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
-        key = self._convert_to_bytes(key)
+        if self._dbm_mode:
+            key = key.encode() if isinstance(key, str) else key
+        else:
+            key = self._convert_to_bytes(key)
 
         offset, size = self._index[key]
         os.lseek(self._data_file_descriptor, offset, os.SEEK_SET)
@@ -139,7 +142,10 @@ class _DBMWReadOnly:
             data = os.read(self._data_file_descriptor, size + CHECKSUM_SIZE)
             data = self._verify_data_checksum(key, data)
 
-        return self._convert_from_bytes(data)
+        if self._dbm_mode:
+            return data
+        else:
+            return self._convert_from_bytes(data)
 
     def __iter__(self) -> Iterator[bytes]:
         for key in iter(self._index.keys()):
@@ -150,7 +156,10 @@ class _DBMWReadOnly:
             yield self._convert_from_bytes(key)
 
     def __contains__(self, key: Any) -> bool:
-        return self._convert_to_bytes(key) in self._index
+        if self._dbm_mode:
+            return key.encode() if isinstance(key, str) else key in self._index
+        else:
+            return self._convert_to_bytes(key) in self._index
 
     def __len__(self):
         return len(self._index)
@@ -204,9 +213,9 @@ class _DBMWReadOnly:
         """Return list of key value pairs."""
         return [(self._convert_from_bytes(key), self[self._convert_from_bytes(key)]) for key in self._index]
 
-    def get(self, key: Any) -> Any:
+    def get(self, key: Any, value: Any = None) -> Any:
         """Get value for key in db."""
-        return self[key]
+        return self[key] if key in self else value
 
     def iter_file_data(self, filename: str) -> Generator[tuple[bytes, int, int], None, None]:
         """Iterate over the stored data.
@@ -336,15 +345,17 @@ class _DBMWReadOnly:
 class _DBMWCreate(_DBMWReadOnly):
     """DBMW file in read-write more, create if doesn't exist."""
 
-    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False):  # noqa
+    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
         """Encapsulate a DBMW file in read-write mode, creating a new database if none exists with given filename.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
+        :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         self._dbname = filename
+        self._dbm_mode = dbm_mode
         self._compact = compact
         self._data_flags = DATA_OPEN_FLAGS
         self._verify_checksums = verify_checksums
@@ -363,11 +374,12 @@ class _DBMWCreate(_DBMWReadOnly):
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
-        key = self._convert_to_bytes(key)
-        value = self._convert_to_bytes(value)
-
-        # Write the new data out at the end of the file. Format is:
-        # <key_size><valsize><key><val><checksum>
+        if self._dbm_mode:
+            key = key.encode() if isinstance(key, str) else key
+            value = value.encode() if isinstance(value, str) else value
+        else:
+            key = self._convert_to_bytes(key)
+            value = self._convert_to_bytes(value)
 
         key_size = len(key)
         val_size = len(value)
@@ -394,12 +406,12 @@ class _DBMWCreate(_DBMWReadOnly):
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
-        key = self._convert_to_bytes(key)
+        if self._dbm_mode:
+            key = key.encode() if isinstance(key, str) else key
+        else:
+            key = self._convert_to_bytes(key)
 
         del self._index[key]
-
-        # Write DELETED as the size of the deleted item. Format is:
-        # <keysize><DELETED><key><checksum>
 
         key_size = struct.pack(KEYVAL_IND_FORMAT, len(key), DELETED)
         checksum = struct.pack(CHECKSUM_FORMAT, crc32(key))
@@ -474,7 +486,12 @@ class _DBMWCreate(_DBMWReadOnly):
     def setdefault(self, key: Any, default: Any = None):
         """If key is in the db, return its value. If not, insert key with a value of default and return default."""
 
-        if self._convert_to_bytes(key) in self._index:
+        if self._dbm_mode:
+            contains = key.encode() if isinstance(key, str) else key in self._index
+        else:
+            contains = self._convert_to_bytes(key) in self._index
+
+        if contains:
             return self[key]
         else:
             self[key] = default
@@ -536,9 +553,20 @@ class _DBMWCreate(_DBMWReadOnly):
         :raises OSError: File can't be renamed. Possibly being used by another process.
         """
 
-        rc = kernel32.ReplaceFile(LPCTSTR(to_file), LPCTSTR(from_file), None, 0, None, None)
-        if rc == 0:
-            raise OSError(f"Can't rename file, error: {kernel32.GetLastError()}")
+        if sys.platform.startswith("win"):
+            import ctypes
+            from ctypes.wintypes import LPVOID, DWORD
+
+            LPCTSTR = ctypes.c_wchar_p
+            kernel32 = ctypes.windll.kernel32
+            kernel32.ReplaceFile.argtypes = [LPCTSTR, LPCTSTR, LPCTSTR, DWORD, LPVOID, LPVOID]
+
+            rc = kernel32.ReplaceFile(LPCTSTR(to_file), LPCTSTR(from_file), None, 0, None, None)
+            if rc == 0:
+                raise OSError(f"Can't rename file, error: {kernel32.GetLastError()}")
+
+        else:
+            os.rename(from_file, to_file)
 
     @staticmethod
     def _write_headers(filename: str):
@@ -560,18 +588,19 @@ class _DBMWCreate(_DBMWReadOnly):
 class _DBMWReadWrite(_DBMWCreate):
     """DBMW file in read-write mode, error if doesn't exist."""
 
-    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False):
+    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
         """Encapsulate a DBMW file in read-write mode, raises DBMError if file does not exist.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
+        :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         if not os.path.isfile(filename):
             raise DBMError(f"Not a file: {filename}")
 
-        super(_DBMWReadWrite, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact)
+        super(_DBMWReadWrite, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
 
     def copy(self, new_filename: str):
         # File needs to be opened in 'create' mode so that '__init__' does not raise 'DBMError' for the copy.
@@ -592,18 +621,19 @@ class _DBMWReadWrite(_DBMWCreate):
 class _DBMWNew(_DBMWCreate):
     """DBMW File will always be created, even if one exists."""
 
-    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False):
+    def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
         """Encapsulate a DBMW file in read-write mode, creating a new file even if one exists for given filename.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the db before closing the db.
+        :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         if os.path.isfile(filename):
             os.remove(filename)
 
-        super(_DBMWNew, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact)
+        super(_DBMWNew, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
 
 
 def add_file_identifier(filename: str) -> str:
@@ -614,7 +644,7 @@ def add_file_identifier(filename: str) -> str:
     return filename
 
 
-def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False):  # noqa
+def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
     """Open a DBMW database.
 
     :param filename: The name of the db.
@@ -625,18 +655,19 @@ def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksum
                  'n' = Always create a new, empty database, open for reading and writing.
     :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call
     :param compact: Indicate whether or not to compact the db before closing it. No effect in read only mode.
+    :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
     :raises ValueError: Flag argument incorrect.
     """
 
     filename = add_file_identifier(filename)
 
     if flag == "r":
-        return _DBMWReadOnly(filename, verify_checksums=verify_checksums)
+        return _DBMWReadOnly(filename, verify_checksums=verify_checksums, dbm_mode=dbm_mode)
     elif flag == "w":
-        return _DBMWReadWrite(filename, verify_checksums=verify_checksums, compact=compact)
+        return _DBMWReadWrite(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     elif flag == "c":
-        return _DBMWCreate(filename, verify_checksums=verify_checksums, compact=compact)
+        return _DBMWCreate(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     elif flag == "n":
-        return _DBMWNew(filename, verify_checksums=verify_checksums, compact=compact)
+        return _DBMWNew(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     else:
         raise ValueError("Flag argument must be 'r', 'c', 'w', or 'n'")

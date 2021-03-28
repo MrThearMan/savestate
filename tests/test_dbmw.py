@@ -160,7 +160,6 @@ class TestDBMW(unittest.TestCase):
     def test_keyerror_raised_when_key_does_not_exist(self):
         self.assertRaises(KeyError, self.db.__getitem__, "foo")
         self.assertRaises(KeyError, self.db.__delitem__, "foo")
-        self.assertRaises(KeyError, self.db.get, "foo")
         self.assertRaises(KeyError, self.db.pop, "foo")
         self.assertRaises(KeyError, self.db.popitem)
 
@@ -453,12 +452,12 @@ class TestDBMW(unittest.TestCase):
         self.db["foo"] = "bar"
         self.db.close()
 
-        with open(self.db.filepath, "r") as f:
+        with open(self.db.filepath, "r+b") as f:
             data = f.read()
 
-        self.assertEqual(data[:4], "dbmw")
+        self.assertEqual(data[:4], b"dbmw")
 
-        with open(self.db.filepath, "rb+") as f:
+        with open(self.db.filepath, "r+b") as f:
             f.seek(0)
             f.write(b"fdjk")
 
@@ -468,7 +467,7 @@ class TestDBMW(unittest.TestCase):
         self.db["foo"] = "bar"
         self.db.close()
 
-        with open(self.db.filepath, "rb+") as f:
+        with open(self.db.filepath, "r+b") as f:
             f.seek(4)
             f.write(struct.pack("!H", 9))
 
@@ -478,7 +477,7 @@ class TestDBMW(unittest.TestCase):
         self.db["foo"] = "bar"
         self.db.close()
 
-        with open(self.db.filepath, "rb+") as f:
+        with open(self.db.filepath, "r+b") as f:
             f.seek(6)
             f.write(struct.pack("!H", 1))
 

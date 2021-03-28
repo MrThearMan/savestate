@@ -37,7 +37,7 @@ if __name__ == "__main__":
     print("\n Begin setup...\n")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', dest="num_keys", type=int, default=10_000)
+    parser.add_argument('-n', dest="num_keys", type=int, default=100_000)
     parser.add_argument('-ks', dest="keysize", type=int, default=16)
     parser.add_argument('-vs', dest="valuesize", type=int, default=100)
     parser.add_argument('-c', dest="compact", type=bool, default=True)
@@ -121,21 +121,20 @@ if __name__ == "__main__":
 
         # --- Delete sequential ----------------------------------------------------------
 
-        if d.__name__ != "shelve":
+        if sys.platform.startswith("win") and d.__name__ == "shelve":
+            print(" Shelve is so slow for deletion on windows it's not worth testing.\n")
+
+        else:
             start = time.time()
             for key in list(random_data.keys()):
                 del db[key]
-            # DBMW will try to compact it's data
-            # A bit slower but not that much
+            # DBMW will try to compact it's data (a bit slower but not that much).
             if args.compact and hasattr(db, "compact"):
                 db.compact()
             total = time.time() - start
 
             print(f" Deleting time for {args.num_keys} keys linearly: {total:.2f}s.")
             print(f" {(args.num_keys / total):.0f} ops/sec.\n")
-
-        else:
-            print(" Shelve is so slow for deletion it's not worth testing.\n")
 
         # --------------------------------------------------------------------------------
 
