@@ -1,18 +1,23 @@
-"""Storage for arbitrary python objects inspired by SemiDMB and Shelve.
+"""Storage for arbitrary python objects inspired by SemiDBM and Shelve.
 
 Data structure and byte sizes are as follows:
-
-⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀x⠀⠀⠀⠀y⠀⠀⠀⠀⠀⠀4⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀⠀⠀⠀8⠀⠀⠀⠀⠀⠀x⠀⠀⠀⠀y⠀⠀⠀⠀⠀⠀4
-<header><key_size><valsize><key><val><checksum><key_size><valsize><key><val><checksum>...
+⠀\n
+⠀\n
+Header:⠀<file_identifier: 4 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>\n
+Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
+⠀⠀⠀⠀⠀⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
+⠀⠀⠀⠀⠀⠀⠀⠀...\n
+⠀\n
 """
 
 import os
 import mmap
+import ntpath
 import struct
 import ctypes
 import builtins
 import pickle
-from itertools import chain
+import warnings
 
 from typing import Literal, Any, Mapping, Iterator, Generator
 from binascii import crc32
@@ -20,6 +25,7 @@ from ctypes.wintypes import LPVOID, DWORD
 
 __all__ = [
     "open",
+    "add_file_identifier",
     "DBMError",
     "DBMLoadError",
     "DBMChecksumError"
@@ -51,7 +57,7 @@ DELETED: int = 0
 """Signifies item has been deleated."""
 
 # Header Info
-FILE_IDENTIFIER: bytes = b'DBMW'  # \x44\x42\x4d\x57 in hex
+FILE_IDENTIFIER: bytes = b'dbmw'
 """Magic identifier for this type of file."""
 FILE_FORMAT_VERSION: int = 1
 """Version of the file format."""
@@ -62,15 +68,12 @@ PICKLE_PROTOCOL: int = 5
 # a value is converted by the format string according to this table:
 # https://docs.python.org/3/library/struct.html#format-characters
 # ... is the same as the size marked here.
-
 HEADER_FORMAT: str = "!4sHH"
 HEADER_SIZE: int = 8
-
 CHECKSUM_FORMAT: str = "!I"
 CHECKSUM_SIZE: int = 4
-
-KEYVAL_FORMAT: str = "!II"
-KEYVAL_SIZE: int = 8
+KEYVAL_IND_FORMAT: str = "!II"
+KEYVAL_IND_SIZE: int = 8
 
 
 class _DBMWReadOnly:
@@ -97,10 +100,31 @@ class _DBMWReadOnly:
         self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
         self._current_offset: int = os.lseek(self._data_file_descriptor, 0, os.SEEK_END)
 
+    def __repr__(self):
+        selftype = type(self)
+        flag = ""
+        if selftype == _DBMWReadOnly:
+            flag = "r"
+        elif selftype == _DBMWReadWrite:
+            flag = "w"
+        elif selftype == _DBMWCreate:
+            flag = "c"
+        elif selftype == _DBMWNew:
+            flag = "n"
+
+        if hasattr(self, "_compact"):
+            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact})"
+        else:
+            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums})"
+
+    def __str__(self):
+        return "DBMW file with content: {" + ", ".join([f"'{key}': '{value}'" for key, value in self.items()]) + "}"
+
     def __getitem__(self, key: Any) -> Any:
         """Load value from the db.
 
         :raises KeyError: Key not found in db.
+        :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
@@ -110,10 +134,12 @@ class _DBMWReadOnly:
         os.lseek(self._data_file_descriptor, offset, os.SEEK_SET)
 
         if not self._verify_checksums:
-            return os.read(self._data_file_descriptor, size)
+            data = os.read(self._data_file_descriptor, size)
         else:
             data = os.read(self._data_file_descriptor, size + CHECKSUM_SIZE)
-            return self._verify_checksum_data(key, data)
+            data = self._verify_data_checksum(key, data)
+
+        return self._convert_from_bytes(data)
 
     def __iter__(self) -> Iterator[bytes]:
         for key in iter(self._index.keys()):
@@ -130,8 +156,8 @@ class _DBMWReadOnly:
         return len(self._index)
 
     def __del__(self):
-        if not self._verify_checksums:
-            return
+        if not self.is_open:
+            return  # already closed or init failed
         self.close()
 
     def __enter__(self):
@@ -141,26 +167,42 @@ class _DBMWReadOnly:
         self.close()
         return False
 
+    @property
+    def filepath(self) -> str:
+        return os.path.abspath(self._dbname)
+
+    @property
+    def filename(self) -> str:
+        return ntpath.basename(self._dbname)
+
+    @property
+    def is_open(self) -> bool:
+        return hasattr(self, "_data_file_descriptor")
+
     def close(self):
         """Close the db.
 
         The data is synced to disk and the db is closed.
         Once the db has been closed, no further reads or writes are allowed.
+
+        :raises AttributeError: Database closed.
         """
 
         os.close(self._data_file_descriptor)
+        # Should be deleted to indicate file is closed to __del__
+        delattr(self, "_data_file_descriptor")
 
     def keys(self) -> list[Any]:
         """Return all they keys in the db."""
-        return list(self._index.keys())
+        return [self._convert_from_bytes(key) for key in self._index]
 
     def values(self) -> list[Any]:
         """Return all they values in the db."""
-        return [self[key] for key in self._index]
+        return [self[self._convert_from_bytes(key)] for key in self._index]
 
     def items(self) -> list[tuple[Any, Any]]:
         """Return list of key value pairs."""
-        return [(key, self[key]) for key in self._index]
+        return [(self._convert_from_bytes(key), self[self._convert_from_bytes(key)]) for key in self._index]
 
     def get(self, key: Any) -> Any:
         """Get value for key in db."""
@@ -187,6 +229,7 @@ class _DBMWReadOnly:
             self._verify_header(header=f.read(HEADER_SIZE))
 
             offset: int = HEADER_SIZE
+            needed_bytes: int = 0
 
             with mmap.mmap(fileno=f.fileno(), length=0, access=mmap.ACCESS_READ) as contents:
                 while True:
@@ -195,63 +238,67 @@ class _DBMWReadOnly:
                         break  # End of file, so stop reading values
 
                     try:
-                        key_size, val_size = struct.unpack(KEYVAL_FORMAT, contents[offset:offset + KEYVAL_SIZE])
+                        key_size, val_size = struct.unpack(KEYVAL_IND_FORMAT, contents[offset:offset + KEYVAL_IND_SIZE])
+                        if key_size < 4:  # pickle min length
+                            warnings.warn(f"Improper key length '{key_size}' at position {offset}/{len(contents)}. "
+                                          f"Could not continue to read data.", category=BytesWarning)
+                            break
+                        elif val_size < 4 and val_size != 0:
+                            warnings.warn(f"Improper key length '{val_size}' at position {offset + KEYVAL_IND_SIZE / 2}/{len(contents)}. "
+                                          f"Could not continue to read data.", category=BytesWarning)
+                            break
                     except struct.error:
-                        raise DBMLoadError(f"Key and value size indicators could not be unpacked from file at position {offset}/{len(contents)}.")
+                        warnings.warn(f"Key and value size indicators could not be unpacked from file "
+                                      f"at position {offset}/{len(contents)}.", category=BytesWarning)
+                        break
 
-                    offset += KEYVAL_SIZE
+                    needed_bytes = (offset + KEYVAL_IND_SIZE + key_size + val_size + CHECKSUM_SIZE) - len(contents)
+                    if needed_bytes > 0:
+                        warnings.warn(f"Some of the data is missing at the end of the file. Compaction necessary.", category=BytesWarning)
+                        break
 
-                    key_name = contents[offset:offset + key_size]
-                    if len(key_name) != key_size:
-                        raise DBMLoadError(f"Could not read the whole key.")
-
+                    offset += KEYVAL_IND_SIZE
+                    key = contents[offset:offset + key_size]
                     offset += key_size
 
-                    yield key_name, offset, val_size
+                    try:
+                        self._verify_data_checksum(key, data_with_checksum=contents[offset:offset + val_size + CHECKSUM_SIZE])
+                        yield key, offset, val_size
+
+                    except DBMChecksumError:
+                        warnings.warn(f"Data was corrupted at position {offset}/{len(contents)}. Compaction necessary.", category=BytesWarning)
 
                     offset += (val_size + CHECKSUM_SIZE)
 
+        # If file doesn't have enought bytes, fill with blank data to
+        # recover from errors that would arise when writing more data to the file.
+        if needed_bytes > 0:
+            with builtins.open(filename, "ab+") as f:
+                f.write(b"\x00" * needed_bytes)
+
+    def _load_index(self, filename: str) -> dict[bytes, tuple[int, int]]:
+        """This method is only used upon instantiation to populate the in memory index."""
+        index = {}
+
+        for key, offset, val_size in self.iter_file_data(filename):
+            if val_size == DELETED:
+                # Due to the append only nature of the db, when values would be deleted from the file,
+                # a new dataint is appended to the file with the same key but the value size set to 'DELETED' instead.
+                # This means that if val_size is DELETED, there must be a value with the same key already in the index,
+                # but it should not be included, as it's marked deleted here.
+                del index[key]
+            else:
+                index[key] = offset, val_size
+
+        return index
+
     @staticmethod
     def _convert_to_bytes(value: Any) -> bytes:
-        """Converts to bytes with either utf-8 encoding or pickle
-
-        :raises pickle.PicklingError: Value is not picklable
-        """
-
-        if isinstance(value, bytes):
-            return value
-
-        elif isinstance(value, (str, int, float)):
-            return str(value).encode("utf-8")
-
-        else:
-            return pickle.dumps(value, protocol=PICKLE_PROTOCOL)
+        return pickle.dumps(value, protocol=PICKLE_PROTOCOL)
 
     @staticmethod
     def _convert_from_bytes(value: bytes) -> Any:
-        """Tries to detect if value was encoded with pickle or utf-8 and decodes value form the bytes.
-
-        :raises: pickle.UnpicklingError: Value is unpicklable.
-        """
-
-        #       PROTO                      PICKLE VERSION                        STOP
-        #    \x80 -> 128                \x05 -> 5   \x04 -> 4                   . -> 46
-        if value[0] == 128 and value[1] in range(1, PICKLE_PROTOCOL + 1) and value[-1] == 46:
-            return pickle.loads(value)
-
-        value = value.decode("utf-8")
-
-        try:
-            return int(value)
-        except ValueError:
-            pass
-
-        try:
-            return float(value)
-        except ValueError:
-            pass
-
-        return value
+        return pickle.loads(value)
 
     @staticmethod
     def _verify_header(header: bytes):
@@ -270,36 +317,20 @@ class _DBMWReadOnly:
             raise DBMLoadError(f"Incompatible pickling protocol. (got: v{pickling_version}, requires: v{PICKLE_PROTOCOL})")
 
     @staticmethod
-    def _verify_checksum_data(key: bytes, data: bytes) -> bytes:
+    def _verify_data_checksum(key: bytes, data_with_checksum: bytes) -> bytes:
         """Verify the data by calculating the checksum with CRC-32. Return data without the checksum.
 
         :raises DBMChecksumError: Checksum failed.
         """
 
-        data_no_checksum = data[:-CHECKSUM_SIZE]
-        checksum = struct.unpack(CHECKSUM_FORMAT, data[-CHECKSUM_SIZE:])[0]
+        data_no_checksum = data_with_checksum[:-CHECKSUM_SIZE]
+        checksum = struct.unpack(CHECKSUM_FORMAT, data_with_checksum[-CHECKSUM_SIZE:])[0]
         computed_checksum = crc32(key + data_no_checksum)
 
         if computed_checksum != checksum:
             raise DBMChecksumError(f"Corrupt data detected: invalid checksum for key {key}.")
 
         return data_no_checksum
-
-    def _load_index(self, filename: str) -> dict[bytes, tuple[int, int]]:
-        """This method is only used upon instantiation to populate the in memory index."""
-        index = {}
-
-        for key_name, offset, val_size in self.iter_file_data(filename):
-            if val_size == DELETED:
-                # Due to the append only nature of the db, when values would be deleted from the file,
-                # a new dataint is appended to the file with the same key but the value size set to 'DELETED' instead.
-                # This means that if val_size is DELETED, there must be a value with the same key already in the index,
-                # but it should not be included, as it's marked deleted here.
-                del index[key_name]
-            else:
-                index[key_name] = (offset, val_size)
-
-        return index
 
 
 class _DBMWCreate(_DBMWReadOnly):
@@ -319,8 +350,8 @@ class _DBMWCreate(_DBMWReadOnly):
         self._verify_checksums = verify_checksums
 
         self._index: dict[bytes, tuple[int, int]] = self._load_index(self._dbname)
-        """The in memory index. Dictionary Key is the offset in bytes in the file to the stored value, 
-        and Value indicates the size of the stored value in bytes."""
+        """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a tuple 
+        of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
         self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
         self._current_offset: int = os.lseek(self._data_file_descriptor, 0, os.SEEK_END)
@@ -328,6 +359,7 @@ class _DBMWCreate(_DBMWReadOnly):
     def __setitem__(self, key: Any, value: Any):
         """Save value in the db.
 
+        :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
@@ -340,7 +372,7 @@ class _DBMWCreate(_DBMWReadOnly):
         key_size = len(key)
         val_size = len(value)
 
-        keyval_size = struct.pack(KEYVAL_FORMAT, key_size, val_size)
+        keyval_size = struct.pack(KEYVAL_IND_FORMAT, key_size, val_size)
         keyval = key + value
 
         checksum = struct.pack(CHECKSUM_FORMAT, crc32(keyval))
@@ -349,7 +381,7 @@ class _DBMWCreate(_DBMWReadOnly):
         os.write(self._data_file_descriptor, blob)
 
         # Update the in memory index.
-        self._index[key] = (self._current_offset + KEYVAL_SIZE + key_size, val_size)
+        self._index[key] = (self._current_offset + KEYVAL_IND_SIZE + key_size, val_size)
         self._current_offset += len(blob)
 
     def __delitem__(self, key: Any):
@@ -358,6 +390,7 @@ class _DBMWCreate(_DBMWReadOnly):
         Still, if a value is added later under the same key, that value will be added to the index.
 
         :raises KeyError: Key not found in db.
+        :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
@@ -368,7 +401,7 @@ class _DBMWCreate(_DBMWReadOnly):
         # Write DELETED as the size of the deleted item. Format is:
         # <keysize><DELETED><key><checksum>
 
-        key_size = struct.pack(KEYVAL_FORMAT, len(key), DELETED)
+        key_size = struct.pack(KEYVAL_IND_FORMAT, len(key), DELETED)
         checksum = struct.pack(CHECKSUM_FORMAT, crc32(key))
 
         blob = key_size + key + checksum
@@ -383,13 +416,14 @@ class _DBMWCreate(_DBMWReadOnly):
         Once the db has been closed, no further reads or writes are allowed.
 
         :param compact: Enable compaction here, even if it was not enabled by open.
+        :raises AttributeError: Database closed.
         """
 
         if self._compact or compact:
             self.compact()
 
         self.sync()
-        os.close(self._data_file_descriptor)
+        super().close()
 
     def sync(self):
         """Sync the db to disk.
@@ -398,6 +432,8 @@ class _DBMWCreate(_DBMWReadOnly):
 
         You should call this method to guarantee that the data is written to disk.
         This method is also called whenever the dbm is `close()`'d.
+
+        :raises AttributeError: Database closed.
         """
 
         # The files are opened unbuffered so we don't technically need to flush the file objects.
@@ -415,7 +451,8 @@ class _DBMWCreate(_DBMWReadOnly):
         """
 
         # Copy the file and close it and the current file
-        new_db = self.copy(self._dbname + "_copy")
+        new_filename = self._dbname[:-len(FILE_IDENTIFIER) - 1] + "_copy"
+        new_db = self.copy(new_filename)
         new_db.close()
         os.close(self._data_file_descriptor)
 
@@ -429,7 +466,7 @@ class _DBMWCreate(_DBMWReadOnly):
 
     def clear(self):
         """Delete all data from the db."""
-        for key in self._index:
+        for key in self.keys():
             self.pop(key)
         self._index = {}
         self.compact()
@@ -437,8 +474,8 @@ class _DBMWCreate(_DBMWReadOnly):
     def setdefault(self, key: Any, default: Any = None):
         """If key is in the db, return its value. If not, insert key with a value of default and return default."""
 
-        if key in self._index:
-            return self._index[key]
+        if self._convert_to_bytes(key) in self._index:
+            return self[key]
         else:
             self[key] = default
             return default
@@ -460,20 +497,25 @@ class _DBMWCreate(_DBMWReadOnly):
                 raise key_e
 
     def popitem(self) -> tuple[Any, Any]:
-        """Get last inserted key value pair."""
+        """Get last inserted key value pair.
+
+        :raises KeyError: Database empty.
+        """
         key, value = self._index.popitem()
         self._index[key] = value
+        key = self._convert_from_bytes(key)
         value = self.pop(key)
         return key, value
 
     def copy(self, new_filename: str):
         """Creates a copy of this db by writing all the keys from this db to the new db."""
 
+        new_filename = add_file_identifier(new_filename)
         assert new_filename != self._dbname, "Copy can't have the same filename as the original."
 
         new_db = self.__class__(filename=new_filename, verify_checksums=self._verify_checksums, compact=self._compact)
 
-        for key in self._index:
+        for key in iter(self):  # Gives keys converted from bytes
             new_db[key] = self[key]
 
         return new_db
@@ -482,15 +524,16 @@ class _DBMWCreate(_DBMWReadOnly):
         """Update db with the the keys and value in other or with given kwargs.
         If both are present, kwargs will overwrite keys given in other."""
 
-        for key, value in chain(other, kwargs):
+        for key, value in other.items():
+            self[key] = value
+        for key, value in kwargs.items():
             self[key] = value
 
     @staticmethod
     def _rename(from_file: str, to_file: str):
-        """Similar to os.rename(), but that doesn't work if the 'to_file'
-        exists so we have to use our own version that supports atomic renames.
+        """Renames db file. If 'to_file' exists, the db file will replace it.
 
-        :raises OSError: File can't be renamed.
+        :raises OSError: File can't be renamed. Possibly being used by another process.
         """
 
         rc = kernel32.ReplaceFile(LPCTSTR(to_file), LPCTSTR(from_file), None, 0, None, None)
@@ -499,7 +542,7 @@ class _DBMWCreate(_DBMWReadOnly):
 
     @staticmethod
     def _write_headers(filename: str):
-        """Write the 8-bit header onto the file."""
+        """Write the header onto the file."""
 
         with builtins.open(filename, "wb") as f:
             f.write(struct.pack(HEADER_FORMAT, FILE_IDENTIFIER, FILE_FORMAT_VERSION, PICKLE_PROTOCOL))
@@ -530,6 +573,21 @@ class _DBMWReadWrite(_DBMWCreate):
 
         super(_DBMWReadWrite, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact)
 
+    def copy(self, new_filename: str):
+        # File needs to be opened in 'create' mode so that '__init__' does not raise 'DBMError' for the copy.
+        # After copying, both of them can be closed and opened in 'read-write' mode.
+
+        self.close()
+        same_db = open(filename=self._dbname, flag="c", verify_checksums=self._verify_checksums, compact=self._compact)
+        new_db = same_db.copy(new_filename=new_filename)
+        same_db.close()
+        new_db.close()
+
+        super(_DBMWReadWrite, self).__init__(filename=self._dbname, verify_checksums=self._verify_checksums, compact=self._compact)
+        new_db = open(filename=new_filename, flag="w", verify_checksums=self._verify_checksums, compact=self._compact)
+
+        return new_db
+
 
 class _DBMWNew(_DBMWCreate):
     """DBMW File will always be created, even if one exists."""
@@ -542,11 +600,18 @@ class _DBMWNew(_DBMWCreate):
         :param compact: Indicate whether or not to compact the db before closing the db.
         """
 
-        if os.path.exists(filename):
+        if os.path.isfile(filename):
             os.remove(filename)
 
         super(_DBMWNew, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact)
 
+
+def add_file_identifier(filename: str) -> str:
+    """Adds DBMW file identifier to string."""
+    filetype = f".{FILE_IDENTIFIER.decode()}"
+    if filename[-len(FILE_IDENTIFIER) - 1:].lower() != filetype:
+        filename += filetype
+    return filename
 
 
 def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False):  # noqa
@@ -562,6 +627,8 @@ def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksum
     :param compact: Indicate whether or not to compact the db before closing it. No effect in read only mode.
     :raises ValueError: Flag argument incorrect.
     """
+
+    filename = add_file_identifier(filename)
 
     if flag == "r":
         return _DBMWReadOnly(filename, verify_checksums=verify_checksums)
