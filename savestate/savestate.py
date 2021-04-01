@@ -78,9 +78,9 @@ class _SaveStateReadOnly:
     """SaveState file in read-only mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, dbm_mode: bool = False):
-        """Encapsulate a SaveState file in read-only mode, raises SaveStateError if file does not exist.
+        """Encapsulate a SaveState file in read-only mode, raises SaveStateError if savestate does not exist.
 
-        :param filename: Name of the file to open.
+        :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
@@ -346,7 +346,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
     """SaveState file in read-write more, create if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
-        """Encapsulate a SaveState file in read-write mode, creating a new database if none exists with given filename.
+        """Encapsulate a SaveState file in read-write mode, creating a new savestate if none exists with given filename.
 
         :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
@@ -589,9 +589,9 @@ class _SaveStateReadWrite(_SaveStateCreate):
     """SaveState file in read-write mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
-        """Encapsulate a SaveState file in read-write mode, raises SaveStateError if file does not exist.
+        """Encapsulate a SaveState file in read-write mode, raises SaveStateError if savestate does not exist.
 
-        :param filename: Name of the file to open.
+        :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the savestate before closing the savestate.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
@@ -625,9 +625,9 @@ class _SaveStateNew(_SaveStateCreate):
     """SaveState File will always be created, even if one exists."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
-        """Encapsulate a SaveState file in read-write mode, creating a new file even if one exists for given filename.
+        """Encapsulate a SaveState file in read-write mode, creating a new savestate even if one exists for given filename.
 
-        :param filename: Name of the file to open.
+        :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the savestate before closing the it.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
@@ -650,7 +650,7 @@ def _add_file_identifier(filename: str) -> str:
 def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
     """Open a SaveState database.
 
-    :param filename: The name of the savestate.
+    :param filename: The name of the savestate to open.
     :param flag: Specifies how the savestate should be opened.
                  'r' = Open existing savestate for reading only (default).
                  'w' = Open existing savestate for reading and writing.
