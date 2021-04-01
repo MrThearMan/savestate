@@ -124,7 +124,7 @@ class _SaveStateReadOnly:
         """Load value from the savestate.
 
         :raises KeyError: Key not found in the savestate.
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
@@ -348,7 +348,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
         """Encapsulate a SaveState file in read-write mode, creating a new database if none exists with given filename.
 
-        :param filename: Name of the file to open.
+        :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
         :param compact: Indicate whether or not to compact the savestate before closing the it.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
@@ -397,12 +397,12 @@ class _SaveStateCreate(_SaveStateReadOnly):
         self._current_offset += len(blob)
 
     def __delitem__(self, key: Any):
-        """Write new value to the file marking that a certain key has been deleted and remove it from the index.
-        When the file is loaded after this, it sees that the value is marked deleted and won't add it to the index.
+        """Write new value to the savestate marking that a certain key has been deleted and remove it from the index.
+        When the savestate is loaded after this, it sees that the value is marked deleted and won't add it to the index.
         Still, if a value is added later under the same key, that value will be added to the index.
 
         :raises KeyError: Key not found in savestate.
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
