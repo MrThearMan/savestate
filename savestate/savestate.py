@@ -113,9 +113,11 @@ class _SaveStateReadOnly:
             flag = "n"
 
         if hasattr(self, "_compact"):
-            return f"savestate.open(filename={self._savestate_name}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact}, dbm_mode={self._dbm_mode})"
+            return f"savestate.open(filename={self._savestate_name}, flag={flag}, " \
+                   f"verify_checksums={self._verify_checksums}, compact={self._compact}, dbm_mode={self._dbm_mode})"
         else:
-            return f"savestate.open(filename={self._savestate_name}, flag={flag}, verify_checksums={self._verify_checksums}, dbm_mode={self._dbm_mode})"
+            return f"savestate.open(filename={self._savestate_name}, flag={flag}, " \
+                   f"verify_checksums={self._verify_checksums}, dbm_mode={self._dbm_mode})"
 
     def __str__(self) -> str:
         return "SaveState file with content: {" + ", ".join([f"'{key}': '{value}'" for key, value in self.items()]) + "}"
