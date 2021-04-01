@@ -11,7 +11,7 @@ It's mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with
   - This is also used to recover from data corruption by skipping data which can't be validated
 - Objects have to support [pickling](https://docs.python.org/3/library/pickle.html#module-pickle) so that they can be used with savestate.
 Note the [security implications](https://docs.python.org/3/library/pickle.html#module-pickle) of this!
-- All the keys of the savestate are kept in memory, which limits the savestate size
+- All the keys of the savestate are kept in memory, which limits the savestate size (not a problem for most applications)
 - NOT Thread safe, so can't be accessed by multiple processes
 - File is append-only, so the more non-read operations you do, the more the filesize is going to balloon
   - Howevever, you can *compact* the savestate, usually on *savestate.close()*, which will replace the savestate with a new file with only the current non-deleted data.
@@ -21,7 +21,7 @@ Note the [security implications](https://docs.python.org/3/library/pickle.html#m
 - About 50-60% of the performance of shelve with [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu) (linux), 
   but >5000% compared to shelve with [dumbdbm](https://docs.python.org/3/library/dbm.html#module-dbm.dumb) (windows) (>20000% for deletes!)
   - Performance is more favourable with large keys and values when compared to [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu), 
-    but it's' still faster on subsequent reads/writes thanks to it's caching
+    but gdbm's still faster on subsequent reads/writes thanks to it's caching
 - A dbm-mode for about double the speed of reqular mode, but only string-type keys and value
   - This is about 25-30% of the performance of [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu) on its own.
   
