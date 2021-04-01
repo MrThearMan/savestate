@@ -248,11 +248,11 @@ class _SaveStateReadOnly:
 
                     try:
                         key_size, val_size = struct.unpack(KEYVAL_IND_FORMAT, contents[offset:offset + KEYVAL_IND_SIZE])
-                        if key_size < 4:  # pickle min length
+                        if key_size < 1:
                             warnings.warn(f"Improper key length '{key_size}' at position {offset}/{len(contents)}. "
                                           f"Could not continue to read data.", category=BytesWarning)
                             break
-                        elif val_size < 4 and val_size != 0:
+                        elif val_size < 0:
                             warnings.warn(f"Improper key length '{val_size}' at position {offset + KEYVAL_IND_SIZE / 2}/{len(contents)}. "
                                           f"Could not continue to read data.", category=BytesWarning)
                             break
