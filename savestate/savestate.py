@@ -428,7 +428,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
         Once the savestate has been closed, no further reads or writes are allowed.
 
         :param compact: Enable compaction here, even if it was not enabled by open.
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         """
 
         if self._compact or compact:
@@ -445,7 +445,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
         You should call this method to guarantee that the data is written to disk.
         This method is also called whenever the savestate is `close()`'d.
 
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         """
 
         # The files are opened unbuffered so we don't technically need to flush the file objects.
@@ -516,7 +516,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
     def popitem(self) -> tuple[Any, Any]:
         """Get last inserted key value pair.
 
-        :raises KeyError: Database empty.
+        :raises KeyError: Savestate empty.
         """
         key, value = self._index.popitem()
         self._index[key] = value
