@@ -196,7 +196,7 @@ class _SaveStateReadOnly:
         The data is synced to disk and the savestate is closed.
         Once the savestate has been closed, no further reads or writes are allowed.
 
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         """
 
         os.close(self._data_file_descriptor)
@@ -372,7 +372,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
     def __setitem__(self, key: Any, value: Any):
         """Save value in the savestate.
 
-        :raises AttributeError: Database closed.
+        :raises AttributeError: Savestate closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
@@ -650,7 +650,7 @@ def _add_file_identifier(filename: str) -> str:
 
 
 def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
-    """Open a SaveState database.
+    """Open a Savestate.
 
     :param filename: The name of the savestate to open.
     :param flag: Specifies how the savestate should be opened.
