@@ -3,7 +3,7 @@
 Data structure and byte sizes are as follows:
 ⠀\n
 ⠀\n
-Header:⠀<file_identifier: 4 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>\n
+Header:⠀<file_identifier: 9 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>\n
 Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
 ⠀⠀⠀⠀⠀⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
 ⠀⠀⠀⠀⠀⠀⠀⠀...\n
@@ -13,6 +13,7 @@ Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val:
 import os
 import sys
 import mmap
+import uuid
 import ntpath
 import struct
 import builtins
@@ -24,22 +25,21 @@ from binascii import crc32
 
 __all__ = [
     "open",
-    "add_file_identifier",
-    "DBMError",
-    "DBMLoadError",
-    "DBMChecksumError"
+    "SaveStateError",
+    "SaveStateLoadError",
+    "SaveStateChecksumError"
 ]
 
 
-class DBMError(Exception):
+class SaveStateError(Exception):
     pass
 
 
-class DBMLoadError(DBMError):
+class SaveStateLoadError(SaveStateError):
     pass
 
 
-class DBMChecksumError(DBMError):
+class SaveStateChecksumError(SaveStateError):
     pass
 
 
@@ -55,7 +55,7 @@ DELETED: int = 0
 """Signifies item has been deleated."""
 
 # Header Info
-FILE_IDENTIFIER: bytes = b'dbmw'
+FILE_IDENTIFIER: bytes = b'savestate'
 """Magic identifier for this type of file."""
 FILE_FORMAT_VERSION: int = 1
 """Version of the file format."""
@@ -66,19 +66,19 @@ PICKLE_PROTOCOL: int = 5
 # a value is converted by the format string according to this table:
 # https://docs.python.org/3/library/struct.html#format-characters
 # ... is the same as the size marked here.
-HEADER_FORMAT: str = "!4sHH"
-HEADER_SIZE: int = 8
+HEADER_FORMAT: str = "!9sHH"
+HEADER_SIZE: int = 13
 CHECKSUM_FORMAT: str = "!I"
 CHECKSUM_SIZE: int = 4
 KEYVAL_IND_FORMAT: str = "!II"
 KEYVAL_IND_SIZE: int = 8
 
 
-class _DBMWReadOnly:
-    """DBMW file in read-only mode, error if doesn't exist."""
+class _SaveStateReadOnly:
+    """SaveState file in read-only mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, dbm_mode: bool = False):
-        """Encapsulate a DBMW file in read-only mode, raises DBMError if file does not exist.
+        """Encapsulate a SaveState file in read-only mode, raises SaveStateError if file does not exist.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
@@ -86,44 +86,44 @@ class _DBMWReadOnly:
         """
 
         if not os.path.isfile(filename):
-            raise DBMError(f"Not a file: {filename}")
+            raise SaveStateError(f"Not a file: {filename}")
 
-        self._dbname = filename
+        self._savestate_name = filename
         self._dbm_mode = dbm_mode
         self._data_flags = DATA_OPEN_FLAGS_READONLY
         self._verify_checksums = verify_checksums
 
-        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._dbname)
+        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._savestate_name)
         """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a tuple 
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
-        self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
+        self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
         self._current_offset: int = os.lseek(self._data_file_descriptor, 0, os.SEEK_END)
 
     def __repr__(self) -> str:
         selftype = type(self)
         flag = ""
-        if selftype == _DBMWReadOnly:
+        if selftype == _SaveStateReadOnly:
             flag = "r"
-        elif selftype == _DBMWReadWrite:
+        elif selftype == _SaveStateReadWrite:
             flag = "w"
-        elif selftype == _DBMWCreate:
+        elif selftype == _SaveStateCreate:
             flag = "c"
-        elif selftype == _DBMWNew:
+        elif selftype == _SaveStateNew:
             flag = "n"
 
         if hasattr(self, "_compact"):
-            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact}, dbm_mode={self._dbm_mode})"
+            return f"savestate.open(filename={self._savestate_name}, flag={flag}, verify_checksums={self._verify_checksums}, compact={self._compact}, dbm_mode={self._dbm_mode})"
         else:
-            return f"dbmw.open(filename={self._dbname}, flag={flag}, verify_checksums={self._verify_checksums}, dbm_mode={self._dbm_mode})"
+            return f"savestate.open(filename={self._savestate_name}, flag={flag}, verify_checksums={self._verify_checksums}, dbm_mode={self._dbm_mode})"
 
     def __str__(self) -> str:
-        return "DBMW file with content: {" + ", ".join([f"'{key}': '{value}'" for key, value in self.items()]) + "}"
+        return "SaveState file with content: {" + ", ".join([f"'{key}': '{value}'" for key, value in self.items()]) + "}"
 
     def __getitem__(self, key: Any) -> Any:
-        """Load value from the db.
+        """Load value from the savestate.
 
-        :raises KeyError: Key not found in db.
+        :raises KeyError: Key not found in the savestate.
         :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
@@ -178,21 +178,21 @@ class _DBMWReadOnly:
 
     @property
     def filepath(self) -> str:
-        return os.path.abspath(self._dbname)
+        return os.path.abspath(self._savestate_name)
 
     @property
     def filename(self) -> str:
-        return ntpath.basename(self._dbname)
+        return ntpath.basename(self._savestate_name)
 
     @property
     def is_open(self) -> bool:
         return hasattr(self, "_data_file_descriptor")
 
     def close(self):
-        """Close the db.
+        """Close the savestate.
 
-        The data is synced to disk and the db is closed.
-        Once the db has been closed, no further reads or writes are allowed.
+        The data is synced to disk and the savestate is closed.
+        Once the savestate has been closed, no further reads or writes are allowed.
 
         :raises AttributeError: Database closed.
         """
@@ -202,22 +202,22 @@ class _DBMWReadOnly:
         delattr(self, "_data_file_descriptor")
 
     def keys(self) -> list[Any]:
-        """Return all they keys in the db."""
+        """Return all they keys in the savestate."""
         return [self._convert_from_bytes(key) for key in self._index]
 
     def values(self) -> list[Any]:
-        """Return all they values in the db."""
+        """Return all they values in the savestate."""
         return [self[self._convert_from_bytes(key)] for key in self._index]
 
     def items(self) -> list[tuple[Any, Any]]:
         """Return list of key value pairs."""
         return [(self._convert_from_bytes(key), self[self._convert_from_bytes(key)]) for key in self._index]
 
-    def get(self, key: Any, value: Any = None) -> Any:
-        """Get value for key in db."""
-        return self[key] if key in self else value
+    def get(self, key: Any, default: Any = None) -> Any:
+        """Get value for key in savestate."""
+        return self[key] if key in self else default
 
-    def iter_file_data(self, filename: str) -> Generator[tuple[bytes, int, int], None, None]:
+    def _iter_file_data(self, filename: str) -> Generator[tuple[bytes, int, int], None, None]:
         """Iterate over the stored data.
 
         Accepts a filename and iterates over the data bytes stored in it.
@@ -231,7 +231,7 @@ class _DBMWReadOnly:
 
         **val_size** is the size of the value in bytes.
 
-        :raises DBMLoadError: Something wrong with the file contents.
+        :raises SaveStateError: Something wrong with the file contents.
         """
 
         with builtins.open(filename, "rb") as f:
@@ -274,7 +274,7 @@ class _DBMWReadOnly:
                         self._verify_data_checksum(key, data_with_checksum=contents[offset:offset + val_size + CHECKSUM_SIZE])
                         yield key, offset, val_size
 
-                    except DBMChecksumError:
+                    except SaveStateChecksumError:
                         warnings.warn(f"Data was corrupted at position {offset}/{len(contents)}. Compaction necessary.", category=BytesWarning)
 
                     offset += (val_size + CHECKSUM_SIZE)
@@ -289,9 +289,9 @@ class _DBMWReadOnly:
         """This method is only used upon instantiation to populate the in memory index."""
         index = {}
 
-        for key, offset, val_size in self.iter_file_data(filename):
+        for key, offset, val_size in self._iter_file_data(filename):
             if val_size == DELETED:
-                # Due to the append only nature of the db, when values would be deleted from the file,
+                # Due to the append only nature of savestate, when values would be deleted from the file,
                 # a new dataint is appended to the file with the same key but the value size set to 'DELETED' instead.
                 # This means that if val_size is DELETED, there must be a value with the same key already in the index,
                 # but it should not be included, as it's marked deleted here.
@@ -313,23 +313,23 @@ class _DBMWReadOnly:
     def _verify_header(header: bytes):
         """Check that file is correct type and compatible version.
 
-        :raises DBMLoadError: File was incorrect type or incompatible version.
+        :raises SaveStateError: File was incorrect type or incompatible version.
         """
 
         signature, file_version, pickling_version = struct.unpack(HEADER_FORMAT, header)
 
         if signature != FILE_IDENTIFIER:
-            raise DBMLoadError("File is not a DBMW db file.")
+            raise SaveStateLoadError("File is not a SaveState file.")
         if file_version != FILE_FORMAT_VERSION:
-            raise DBMLoadError(f"Incompatible file version (got: v{file_version}, can handle: v{FILE_FORMAT_VERSION})")
+            raise SaveStateLoadError(f"Incompatible file version (got: v{file_version}, can handle: v{FILE_FORMAT_VERSION})")
         if pickling_version < PICKLE_PROTOCOL:
-            raise DBMLoadError(f"Incompatible pickling protocol. (got: v{pickling_version}, requires: v{PICKLE_PROTOCOL})")
+            raise SaveStateLoadError(f"Incompatible pickling protocol. (got: v{pickling_version}, requires: v{PICKLE_PROTOCOL})")
 
     @staticmethod
     def _verify_data_checksum(key: bytes, data_with_checksum: bytes) -> bytes:
         """Verify the data by calculating the checksum with CRC-32. Return data without the checksum.
 
-        :raises DBMChecksumError: Checksum failed.
+        :raises SaveStateChecksumError: Checksum failed.
         """
 
         data_no_checksum = data_with_checksum[:-CHECKSUM_SIZE]
@@ -337,38 +337,38 @@ class _DBMWReadOnly:
         computed_checksum = crc32(key + data_no_checksum)
 
         if computed_checksum != checksum:
-            raise DBMChecksumError(f"Corrupt data detected: invalid checksum for key {key}.")
+            raise SaveStateChecksumError(f"Corrupt data detected: invalid checksum for key {key}.")
 
         return data_no_checksum
 
 
-class _DBMWCreate(_DBMWReadOnly):
-    """DBMW file in read-write more, create if doesn't exist."""
+class _SaveStateCreate(_SaveStateReadOnly):
+    """SaveState file in read-write more, create if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
-        """Encapsulate a DBMW file in read-write mode, creating a new database if none exists with given filename.
+        """Encapsulate a SaveState file in read-write mode, creating a new database if none exists with given filename.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the db before closing the db.
+        :param compact: Indicate whether or not to compact the savestate before closing the it.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
-        self._dbname = filename
+        self._savestate_name = filename
         self._dbm_mode = dbm_mode
         self._compact = compact
         self._data_flags = DATA_OPEN_FLAGS
         self._verify_checksums = verify_checksums
 
-        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._dbname)
+        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._savestate_name)
         """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a tuple 
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
-        self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
+        self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
         self._current_offset: int = os.lseek(self._data_file_descriptor, 0, os.SEEK_END)
 
     def __setitem__(self, key: Any, value: Any):
-        """Save value in the db.
+        """Save value in the savestate.
 
         :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
@@ -401,7 +401,7 @@ class _DBMWCreate(_DBMWReadOnly):
         When the file is loaded after this, it sees that the value is marked deleted and won't add it to the index.
         Still, if a value is added later under the same key, that value will be added to the index.
 
-        :raises KeyError: Key not found in db.
+        :raises KeyError: Key not found in savestate.
         :raises AttributeError: Database closed.
         :raises pickle.PicklingError: Key is not pickleable.
         """
@@ -422,10 +422,10 @@ class _DBMWCreate(_DBMWReadOnly):
         self._current_offset += len(blob)
 
     def close(self, compact: bool = False):
-        """Close the db.
+        """Close the savestate.
 
-        The data is synced to disk and the db is closed.
-        Once the db has been closed, no further reads or writes are allowed.
+        The data is synced to disk and the savestate is closed.
+        Once the savestate has been closed, no further reads or writes are allowed.
 
         :param compact: Enable compaction here, even if it was not enabled by open.
         :raises AttributeError: Database closed.
@@ -438,12 +438,12 @@ class _DBMWCreate(_DBMWReadOnly):
         super().close()
 
     def sync(self):
-        """Sync the db to disk.
+        """Sync the savestate to disk.
 
         This will flush any of the existing buffers and fsync the data to disk.
 
         You should call this method to guarantee that the data is written to disk.
-        This method is also called whenever the dbm is `close()`'d.
+        This method is also called whenever the savestate is `close()`'d.
 
         :raises AttributeError: Database closed.
         """
@@ -452,39 +452,39 @@ class _DBMWCreate(_DBMWReadOnly):
         os.fsync(self._data_file_descriptor)
 
     def compact(self):
-        """Rewrite the contents of the files.
+        """Rewrite the contents of the savestate file.
 
-        This method is needed because of the append only nature of the db.
-        Basically, compaction works by opening a new db, writing all the keys from this db to the new db, renaming the
-        new db to the filenames associated with this db, and reopening the new db as this db.
+        This method is needed because of the append only nature of the file format.
+        Basically, compaction works by opening a new savestate, writing all the keys from this savestate to the new savestate, renaming the
+        new savestate to the filename associated with this savestate, and reopening the new savestate as this savestate.
 
         Compaction is optional, since it's a trade-off between speed and storage space used.
         As a general rule of thumb, the more non-read updates you do, the more space you'll save when you compact.
         """
 
         # Copy the file and close it and the current file
-        new_filename = self._dbname[:-len(FILE_IDENTIFIER) - 1] + "_copy"
-        new_db = self.copy(new_filename)
-        new_db.close()
+        new_filename = self._savestate_name[:-len(FILE_IDENTIFIER) - 1] + f"_{uuid.uuid4()}"
+        new_savestate = self.copy(new_filename)
+        new_savestate.close()
         os.close(self._data_file_descriptor)
 
         # Rename the new file to the current file, replacing it in the process.
-        self._rename(from_file=new_db._dbname, to_file=self._dbname)
+        self._rename(from_file=new_savestate._savestate_name, to_file=self._savestate_name)
 
         # Open the new file as the current file.
-        self._index: dict[bytes, tuple[int, int]] = new_db._index
-        self._data_file_descriptor: int = os.open(self._dbname, self._data_flags)
-        self._current_offset: int = new_db._current_offset
+        self._index: dict[bytes, tuple[int, int]] = new_savestate._index
+        self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
+        self._current_offset: int = new_savestate._current_offset
 
     def clear(self):
-        """Delete all data from the db."""
+        """Delete all data from the savestate."""
         for key in self.keys():
             self.pop(key)
         self._index = {}
         self.compact()
 
     def setdefault(self, key: Any, default: Any = None):
-        """If key is in the db, return its value. If not, insert key with a value of default and return default."""
+        """If key is in the savestate, return its value. If not, insert key with a value of default and return default."""
 
         if self._dbm_mode:
             contains = key.encode() if isinstance(key, str) else key in self._index
@@ -498,7 +498,7 @@ class _DBMWCreate(_DBMWReadOnly):
             return default
 
     def pop(self, key: Any, default: Any = None):
-        """If key is in the db, remove it and return its value, else return default if not None.
+        """If key is in the savestate, remove it and return its value, else return default if not None.
 
         :raises KeyError: Default is not given and key is not in the dictionary
         """
@@ -525,20 +525,20 @@ class _DBMWCreate(_DBMWReadOnly):
         return key, value
 
     def copy(self, new_filename: str):
-        """Creates a copy of this db by writing all the keys from this db to the new db."""
+        """Creates a copy of this savestate by writing all the keys from this savestate to the new savestate."""
 
-        new_filename = add_file_identifier(new_filename)
-        assert new_filename != self._dbname, "Copy can't have the same filename as the original."
+        new_filename = _add_file_identifier(new_filename)
+        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."
 
-        new_db = self.__class__(filename=new_filename, verify_checksums=self._verify_checksums, compact=self._compact)
+        new_savestate = self.__class__(filename=new_filename, verify_checksums=self._verify_checksums, compact=self._compact)
 
         for key in iter(self):  # Gives keys converted from bytes
-            new_db[key] = self[key]
+            new_savestate[key] = self[key]
 
-        return new_db
+        return new_savestate
 
     def update(self, other: Mapping[Any, Any], **kwargs: Any):
-        """Update db with the the keys and value in other or with given kwargs.
+        """Update the savestate with the the keys and value in other or with given kwargs.
         If both are present, kwargs will overwrite keys given in other."""
 
         for key, value in other.items():
@@ -548,7 +548,7 @@ class _DBMWCreate(_DBMWReadOnly):
 
     @staticmethod
     def _rename(from_file: str, to_file: str):
-        """Renames db file. If 'to_file' exists, the db file will replace it.
+        """Renames the savestate file. If 'to_file' exists, the savestate file will replace it.
 
         :raises OSError: File can't be renamed. Possibly being used by another process.
         """
@@ -582,62 +582,65 @@ class _DBMWCreate(_DBMWReadOnly):
             self._write_headers(filename)
             return {}
 
-        return super(_DBMWCreate, self)._load_index(filename)
+        return super(_SaveStateCreate, self)._load_index(filename)
 
 
-class _DBMWReadWrite(_DBMWCreate):
-    """DBMW file in read-write mode, error if doesn't exist."""
+class _SaveStateReadWrite(_SaveStateCreate):
+    """SaveState file in read-write mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
-        """Encapsulate a DBMW file in read-write mode, raises DBMError if file does not exist.
+        """Encapsulate a SaveState file in read-write mode, raises SaveStateError if file does not exist.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the db before closing the db.
+        :param compact: Indicate whether or not to compact the savestate before closing the savestate.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         if not os.path.isfile(filename):
-            raise DBMError(f"Not a file: {filename}")
+            raise SaveStateError(f"Not a file: {filename}")
 
-        super(_DBMWReadWrite, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
+        super(_SaveStateReadWrite, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
 
     def copy(self, new_filename: str):
-        # File needs to be opened in 'create' mode so that '__init__' does not raise 'DBMError' for the copy.
+        # File needs to be opened in 'create' mode so that '__init__' does not raise 'SaveStateError' for the copy.
         # After copying, both of them can be closed and opened in 'read-write' mode.
 
+        new_filename = _add_file_identifier(new_filename)
+        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."
+
         self.close()
-        same_db = open(filename=self._dbname, flag="c", verify_checksums=self._verify_checksums, compact=self._compact)
-        new_db = same_db.copy(new_filename=new_filename)
-        same_db.close()
-        new_db.close()
+        same_savestate = open(filename=self._savestate_name, flag="c", verify_checksums=self._verify_checksums, compact=self._compact)
+        new_savestate = same_savestate.copy(new_filename=new_filename)
+        same_savestate.close()
+        new_savestate.close()
 
-        super(_DBMWReadWrite, self).__init__(filename=self._dbname, verify_checksums=self._verify_checksums, compact=self._compact)
-        new_db = open(filename=new_filename, flag="w", verify_checksums=self._verify_checksums, compact=self._compact)
+        super(_SaveStateReadWrite, self).__init__(filename=self._savestate_name, verify_checksums=self._verify_checksums, compact=self._compact)
+        new_savestate = open(filename=new_filename, flag="w", verify_checksums=self._verify_checksums, compact=self._compact)
 
-        return new_db
+        return new_savestate
 
 
-class _DBMWNew(_DBMWCreate):
-    """DBMW File will always be created, even if one exists."""
+class _SaveStateNew(_SaveStateCreate):
+    """SaveState File will always be created, even if one exists."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
-        """Encapsulate a DBMW file in read-write mode, creating a new file even if one exists for given filename.
+        """Encapsulate a SaveState file in read-write mode, creating a new file even if one exists for given filename.
 
         :param filename: Name of the file to open.
         :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the db before closing the db.
+        :param compact: Indicate whether or not to compact the savestate before closing the it.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
         if os.path.isfile(filename):
             os.remove(filename)
 
-        super(_DBMWNew, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
+        super(_SaveStateNew, self).__init__(filename=filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
 
 
-def add_file_identifier(filename: str) -> str:
-    """Adds DBMW file identifier to string."""
+def _add_file_identifier(filename: str) -> str:
+    """Adds SaveState file identifier to string."""
     filetype = f".{FILE_IDENTIFIER.decode()}"
     if filename[-len(FILE_IDENTIFIER) - 1:].lower() != filetype:
         filename += filetype
@@ -645,29 +648,29 @@ def add_file_identifier(filename: str) -> str:
 
 
 def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
-    """Open a DBMW database.
+    """Open a SaveState database.
 
-    :param filename: The name of the db.
-    :param flag: Specifies how the db should be opened.
-                 'r' = Open existing database for reading only (default).
-                 'w' = Open existing database for reading and writing.
-                 'c' = Open database for reading and writing, creating it if it doesn't exist.
-                 'n' = Always create a new, empty database, open for reading and writing.
-    :param verify_checksums: Verify the checksums for each value are correct on every __getitem__ call
-    :param compact: Indicate whether or not to compact the db before closing it. No effect in read only mode.
+    :param filename: The name of the savestate.
+    :param flag: Specifies how the savestate should be opened.
+                 'r' = Open existing savestate for reading only (default).
+                 'w' = Open existing savestate for reading and writing.
+                 'c' = Open savestate for reading and writing, creating it if it doesn't exist.
+                 'n' = Always create a new, empty savestate, open for reading and writing.
+    :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call
+    :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
     :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
     :raises ValueError: Flag argument incorrect.
     """
 
-    filename = add_file_identifier(filename)
+    filename = _add_file_identifier(filename)
 
     if flag == "r":
-        return _DBMWReadOnly(filename, verify_checksums=verify_checksums, dbm_mode=dbm_mode)
+        return _SaveStateReadOnly(filename, verify_checksums=verify_checksums, dbm_mode=dbm_mode)
     elif flag == "w":
-        return _DBMWReadWrite(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
+        return _SaveStateReadWrite(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     elif flag == "c":
-        return _DBMWCreate(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
+        return _SaveStateCreate(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     elif flag == "n":
-        return _DBMWNew(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
+        return _SaveStateNew(filename, verify_checksums=verify_checksums, compact=compact, dbm_mode=dbm_mode)
     else:
         raise ValueError("Flag argument must be 'r', 'c', 'w', or 'n'")

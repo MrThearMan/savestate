@@ -1,15 +1,15 @@
-"""Unittests for DBMW."""
+"""Unittests for SaveState."""
 
 import os
 import shutil
 import pickle
 import struct
 import unittest
-import dbmw
+import savestate
 from argparse import Namespace
 
 
-class TestDBMW(unittest.TestCase):
+class TestSaveState(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -27,7 +27,7 @@ class TestDBMW(unittest.TestCase):
             shutil.rmtree(self.tempdir)
 
         os.mkdir(self.tempdir)
-        self.db = dbmw.open(filename=self.filepath, flag="n")
+        self.db = savestate.open(filename=self.filepath, flag="n")
 
     def tearDown(self) -> None:
         if self.db.is_open:
@@ -42,7 +42,7 @@ class TestDBMW(unittest.TestCase):
     # --- Tests -------------------------------------------------------------
 
     def test_file_identifier_gets_added(self):
-        self.assertEqual(self.db.filename[-5:], ".dbmw")
+        self.assertEqual(self.db.filename[-10:], ".savestate")
 
     def test_flags(self):
         self.db.close()
@@ -50,23 +50,23 @@ class TestDBMW(unittest.TestCase):
         os.mkdir(self.tempdir)
 
         # Improper flag
-        self.assertRaises(ValueError,  dbmw.open, filename=self.filepath, flag="foo")
+        self.assertRaises(ValueError, savestate.open, filename=self.filepath, flag="foo")
 
         # Test that file can't be created on these modes.
-        self.assertRaises(dbmw.DBMError, dbmw.open, filename=self.filepath, flag="r")
-        self.assertRaises(dbmw.DBMError, dbmw.open, filename=self.filepath, flag="w")
+        self.assertRaises(savestate.SaveStateError, savestate.open, filename=self.filepath, flag="r")
+        self.assertRaises(savestate.SaveStateError, savestate.open, filename=self.filepath, flag="w")
 
         try:
-            self.db = dbmw.open(filename=self.filepath, flag="c")
-        except dbmw.DBMError:
-            self.fail("Opening DBMW with flag 'c' when file does not exist should not raise a 'DBMWError'!")
+            self.db = savestate.open(filename=self.filepath, flag="c")
+        except savestate.SaveStateError:
+            self.fail("Opening SaveState with flag 'c' when file does not exist should not raise a 'SaveStateError'!")
 
         self.db["foo"] = "bar"
         self.assertEqual("bar", self.db["foo"])
         self.db.close()
 
         # Test read only mode
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         # All methods that read-only does should not have
         self.assertFalse(hasattr(self.db, "__setitem__"))
         self.assertFalse(hasattr(self.db, "__delitem__"))
@@ -85,13 +85,13 @@ class TestDBMW(unittest.TestCase):
         self.db.close()
 
         # Test read-write mode
-        self.db = dbmw.open(filename=self.filepath, flag="w")
+        self.db = savestate.open(filename=self.filepath, flag="w")
         self.db["foo"] = "baz"
         self.assertEqual("baz", self.db["foo"])
         self.db.close()
 
         # Test create new always mode
-        self.db = dbmw.open(filename=self.filepath, flag="n")
+        self.db = savestate.open(filename=self.filepath, flag="n")
         self.assertTrue("foo" not in self.db)
         self.db["foo"] = "bar"
         self.assertEqual("bar", self.db["foo"])
@@ -101,9 +101,9 @@ class TestDBMW(unittest.TestCase):
         os.mkdir(self.tempdir)
 
         try:
-            self.db = dbmw.open(filename=self.filepath, flag="n")
-        except dbmw.DBMError:
-            self.fail("Opening DBMW with flag 'n' when file does not exist should not raise a 'DBMWError'!")
+            self.db = savestate.open(filename=self.filepath, flag="n")
+        except savestate.SaveStateError:
+            self.fail("Opening SaveState with flag 'n' when file does not exist should not raise a 'SaveStateError'!")
 
     # --- Test setting and getting different types ---------------------------
 
@@ -144,7 +144,7 @@ class TestDBMW(unittest.TestCase):
     def test_close_and_reopen(self):
         self.db["foo"] = "bar"
         self.db.close()
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertEqual("bar", self.db["foo"])
 
     def test_get_set_multiple(self):
@@ -175,7 +175,7 @@ class TestDBMW(unittest.TestCase):
         self.db["one"] = "bar"
         self.db["one"] = "baz"
         self.db.close()
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertEqual(self.db["one"], "baz")
 
     def test_deletes(self):
@@ -189,7 +189,7 @@ class TestDBMW(unittest.TestCase):
         del self.db["two"]
         self.db.close()
 
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertEqual(self.db["one"], 1)
         self.assertTrue("two" not in self.db)
 
@@ -203,7 +203,7 @@ class TestDBMW(unittest.TestCase):
         self.db["bar"] = "bar"
         self.db.close()
 
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertTrue("foo" not in self.db)
         self.assertEqual(self.db["bar"], "bar")
 
@@ -216,7 +216,7 @@ class TestDBMW(unittest.TestCase):
         self.assertEqual(self.db["two"], 2)
         self.assertEqual(self.db["one"], 3)
 
-    # --- Test dbmw methods --------------------------------------------------
+    # --- Test savestate methods --------------------------------------------------
 
     def test_get_method(self):
         self.db["foo"] = "bar"
@@ -277,25 +277,25 @@ class TestDBMW(unittest.TestCase):
     def test_del_method(self):
         try:
             del self.db
-            self.db = dbmw.open(filename=self.filepath, flag="r")
+            self.db = savestate.open(filename=self.filepath, flag="r")
         except:  # noqa
             self.fail("Database did not close gracefully when deleted")
 
         try:
-            self.db = dbmw.open(filename=os.path.join(self.tempdir, "testcopy"), flag="n")
-            self.db = dbmw.open(filename=self.filepath, flag="r")
+            self.db = savestate.open(filename=os.path.join(self.tempdir, "testcopy"), flag="n")
+            self.db = savestate.open(filename=self.filepath, flag="r")
         except:  # noqa
             self.fail("Database did not close gracefully when garbage collected")
 
     def test_context_manager(self):
         self.db.close()
 
-        with dbmw.open(filename=self.filepath, flag="n") as db:
+        with savestate.open(filename=self.filepath, flag="n") as db:
             db["one"] = 1
             db["two"] = 2
             db["three"] = 3
 
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertEqual(1, self.db["one"])
         self.assertEqual(2, self.db["two"])
         self.assertEqual(3, self.db["three"])
@@ -323,7 +323,7 @@ class TestDBMW(unittest.TestCase):
 
         before = os.path.getsize(self.db.filepath)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.db.clear()
         self.assertRaises(KeyError, self.db.__getitem__, "one")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -356,7 +356,7 @@ class TestDBMW(unittest.TestCase):
         copyfile = os.path.join(self.tempdir, "testcopy")
 
         for mode in ("n", "w", "c"):
-            self.db = dbmw.open(filename=self.filepath, flag=mode)  # noqa
+            self.db = savestate.open(filename=self.filepath, flag=mode)  # noqa
             self.db["foo"] = "bar"
             new_db = self.db.copy(copyfile)
             self.assertEqual(self.db["foo"], new_db["foo"])
@@ -365,7 +365,7 @@ class TestDBMW(unittest.TestCase):
             self.db.close()
             os.remove(new_db.filepath)
 
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         self.assertFalse(hasattr(self.db, "copy"))
 
     def test_covert_to_bytes(self):
@@ -379,11 +379,11 @@ class TestDBMW(unittest.TestCase):
         self.db["foo"] = "bar"
         self.db.close()
 
-        self.db = dbmw.open(self.filepath, flag="r", verify_checksums=True)
+        self.db = savestate.open(self.filepath, flag="r", verify_checksums=True)
 
         try:
             _ = self.db["foo"]
-        except dbmw.DBMChecksumError:
+        except savestate.SaveStateChecksumError:
             self.fail("Checksum failed.")
 
     # --- Test compaction ----------------------------------------------------
@@ -397,7 +397,7 @@ class TestDBMW(unittest.TestCase):
         self.db.close()
         before = os.path.getsize(self.db.filepath)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.db.compact()
         self.db.close()
 
@@ -412,7 +412,7 @@ class TestDBMW(unittest.TestCase):
             del self.db[i]
 
         self.db.close()
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.db.compact()
 
         after = len(os.listdir(self.tempdir))
@@ -422,9 +422,9 @@ class TestDBMW(unittest.TestCase):
         self.db["foo"] = "bar"
         del self.db["foo"]
         self.db.close(compact=True)
-        self.db = dbmw.open(filename=self.filepath, flag="r")
+        self.db = savestate.open(filename=self.filepath, flag="r")
         # Only header in the file.
-        self.assertEqual(self.db._current_offset, 8)
+        self.assertEqual(self.db._current_offset, 13)
 
     def test_compact_set_and_get(self):
         for i in range(10):
@@ -455,13 +455,13 @@ class TestDBMW(unittest.TestCase):
         with open(self.db.filepath, "r+b") as f:
             data = f.read()
 
-        self.assertEqual(data[:4], b"dbmw")
+        self.assertEqual(data[:9], b"savestate")
 
         with open(self.db.filepath, "r+b") as f:
             f.seek(0)
-            f.write(b"fdjk")
+            f.write(b"fdjkasdtj")
 
-        self.assertRaises(dbmw.DBMLoadError, dbmw.open, filename=self.filepath, flag="c")
+        self.assertRaises(savestate.SaveStateLoadError, savestate.open, filename=self.filepath, flag="c")
 
     def test_incompatible_version_number_raises_error(self):
         self.db["foo"] = "bar"
@@ -471,7 +471,7 @@ class TestDBMW(unittest.TestCase):
             f.seek(4)
             f.write(struct.pack("!H", 9))
 
-        self.assertRaises(dbmw.DBMLoadError, dbmw.open, filename=self.filepath, flag="c")
+        self.assertRaises(savestate.SaveStateLoadError, savestate.open, filename=self.filepath, flag="c")
 
     def test_incompatible_picking_version_raises_error(self):
         self.db["foo"] = "bar"
@@ -481,7 +481,7 @@ class TestDBMW(unittest.TestCase):
             f.seek(6)
             f.write(struct.pack("!H", 1))
 
-        self.assertRaises(dbmw.DBMLoadError, dbmw.open, filename=self.filepath, flag="c")
+        self.assertRaises(savestate.SaveStateLoadError, savestate.open, filename=self.filepath, flag="c")
 
     def test_warns_but_recovers_from_bad_key_value_size_indicator(self):
         self.db["one"] = "bar"
@@ -494,11 +494,11 @@ class TestDBMW(unittest.TestCase):
         # Write garbage as the key and value indicator for the second key.
         # The first key should still be read and the db formed from that.
         with open(self.db.filepath, "r+b") as f:
-            f.seek(8 + 8 + 18 + 18 + 4)
+            f.seek(13 + 8 + 18 + 18 + 4)
             f.write(b"\x00" * 8)
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -509,7 +509,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
 
     def test_warns_but_recovers_from_bad_key_data(self):
@@ -523,11 +523,11 @@ class TestDBMW(unittest.TestCase):
         # Write garbage to the beginning of the second key data.
         # The first and third key should still be read and the db formed from that.
         with open(self.db.filepath, "r+b") as f:
-            f.seek(8 + 8 + 18 + 18 + 4 + 8)
+            f.seek(13 + 8 + 18 + 18 + 4 + 8)
             f.write(b"\x00" * 8)
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -538,7 +538,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
         self.assertEqual(self.db["three"], "bar")
 
@@ -553,11 +553,11 @@ class TestDBMW(unittest.TestCase):
         # # Write garbage to the beginning of the second value data.
         # The first and third key should still be read and the db formed from that.
         with open(self.db.filepath, "r+b") as f:
-            f.seek(8 + 8 + 18 + 18 + 4 + 8 + 18)
+            f.seek(13 + 8 + 18 + 18 + 4 + 8 + 18)
             f.write(b"\x00" * 8)
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -568,7 +568,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
         self.assertEqual(self.db["three"], "bar")
 
@@ -583,11 +583,11 @@ class TestDBMW(unittest.TestCase):
         # # Write garbage to the beginning of the second value data.
         # The first and third key should still be read and the db formed from that.
         with open(self.db.filepath, "r+b") as f:
-            f.seek(8 + 8 + 18 + 18 + 4 + 8 + 18 + 18)
+            f.seek(13 + 8 + 18 + 18 + 4 + 8 + 18 + 18)
             f.write(b"\x00" * 4)
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -598,7 +598,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
         self.assertEqual(self.db["three"], "bar")
 
@@ -615,7 +615,7 @@ class TestDBMW(unittest.TestCase):
         self.truncate_data_file(bytes_from_end=8)
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertEqual(self.db["two"], "bar")
@@ -626,7 +626,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after + 8, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
 
     def test_warns_but_recovers_from_trying_to_read_past_the_end_of_the_file(self):
@@ -639,11 +639,11 @@ class TestDBMW(unittest.TestCase):
 
         # Set value length indicator to 255 instead of 18
         with open(self.db.filepath, "r+b") as f:
-            f.seek(8 + 8 + 18 + 18 + 4 + 4)
+            f.seek(13 + 8 + 18 + 18 + 4 + 4)
             f.write(b"\x00\x00\x00\xff")
 
         with self.assertWarns(BytesWarning):
-            self.db = dbmw.open(filename=self.filepath, flag="c")
+            self.db = savestate.open(filename=self.filepath, flag="c")
 
         self.assertEqual(self.db["one"], "bar")
         self.assertRaises(KeyError, self.db.__getitem__, "two")
@@ -653,7 +653,7 @@ class TestDBMW(unittest.TestCase):
         after = os.path.getsize(self.db.filepath)
         self.assertLess(after + 8, before)
 
-        self.db = dbmw.open(filename=self.filepath, flag="c")
+        self.db = savestate.open(filename=self.filepath, flag="c")
         self.assertEqual(self.db["one"], "bar")
 
 

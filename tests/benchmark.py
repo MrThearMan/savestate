@@ -1,4 +1,4 @@
-"""Test DBMW performance and functionality. Be sure to run this from the command line for accuracy."""
+"""Test SaveState performance and functionality. Be sure to run this from the command line for accuracy."""
 
 import os
 import sys
@@ -31,7 +31,7 @@ def _generate_random_data(length: int, ks: int, vs: int) -> Generator[tuple[byte
 
 if __name__ == "__main__":
 
-    import dbmw
+    import savestate
     import shelve
 
     print("\n Begin setup...\n")
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # If you wish to compare performance with another library,
     # import it and add it to the list here. It must implement:
     # 'open', 'close', '__getitem__', '__setitem__' and '__delitem__'
-    for d in [dbmw, shelve]:
+    for d in [savestate, shelve]:
         print(" ------------------------------------------\n")
         print(f" Testing {d.__name__}\n")
         os.mkdir(testdir)
@@ -115,7 +115,7 @@ if __name__ == "__main__":
             _ = db[key]
         total = time.time() - start
 
-        # Tests caching, not applicable to dbmw
+        # Tests caching, not applicable to savestate
         print(f" Read time for random 1% of {args.num_keys} keys 100 times: {total:.2f}s.")
         print(f" {(len(random_reads_one_percent) / total):.0f} ops/sec.\n")
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             start = time.time()
             for key in list(random_data.keys()):
                 del db[key]
-            # DBMW will try to compact it's data (a bit slower but not that much).
+            # SaveState will try to compact it's data (a bit slower but not that much).
             if args.compact and hasattr(db, "compact"):
                 db.compact()
             total = time.time() - start
