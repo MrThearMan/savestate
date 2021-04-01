@@ -292,7 +292,7 @@ class _SaveStateReadOnly:
         for key, offset, val_size in self._iter_file_data(filename):
             if val_size == DELETED:
                 # Due to the append only nature of savestate, when values would be deleted from the file,
-                # a new dataint is appended to the file with the same key but the value size set to 'DELETED' instead.
+                # a new datapoint is appended to the file with the same key but the value size set to 'DELETED' instead.
                 # This means that if val_size is DELETED, there must be a value with the same key already in the index,
                 # but it should not be included, as it's marked deleted here.
                 del index[key]
