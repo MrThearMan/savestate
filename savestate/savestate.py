@@ -21,6 +21,7 @@ import builtins
 import warnings
 
 from typing import Literal, Any, Mapping, Iterator, Generator
+from types import TracebackType
 from binascii import crc32
 
 __all__ = [
@@ -180,7 +181,7 @@ class _SaveStateReadOnly:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type, exc_val: Exception, exc_tb: TracebackType) -> bool:
         self.close()
         return False
 
