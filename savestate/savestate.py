@@ -169,6 +169,9 @@ class _SaveStateReadOnly:
     def __len__(self):
         return len(self._index)
 
+    def __bool__(self) -> bool:
+        return bool(self._index)
+
     def __del__(self):
         if not self.is_open:
             return  # already closed or init failed
