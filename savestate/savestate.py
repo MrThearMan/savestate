@@ -166,7 +166,7 @@ class _SaveStateReadOnly:
         else:
             return self._convert_to_bytes(key) in self._index
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._index)
 
     def __bool__(self) -> bool:
