@@ -16,8 +16,8 @@ import mmap
 import uuid
 import ntpath
 import struct
-import builtins
 import pickle
+import builtins
 import warnings
 
 from typing import Literal, Any, Mapping, Iterator, Generator
@@ -81,7 +81,7 @@ class _SaveStateReadOnly:
         """Encapsulate a SaveState file in read-only mode, raises SaveStateError if savestate does not exist.
 
         :param filename: Name of the savestate to open.
-        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
+        :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
@@ -130,6 +130,7 @@ class _SaveStateReadOnly:
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
+        # [sic] implementing this in _convert_to_bytes would be slower
         if self._dbm_mode:
             key = key.encode() if isinstance(key, str) else key
         else:
@@ -144,6 +145,7 @@ class _SaveStateReadOnly:
             data = os.read(self._data_file_descriptor, size + CHECKSUM_SIZE)
             data = self._verify_data_checksum(key, data)
 
+        # [sic] implementing this in _convert_from_bytes would be slower
         if self._dbm_mode:
             return data
         else:
@@ -351,8 +353,8 @@ class _SaveStateCreate(_SaveStateReadOnly):
         """Encapsulate a SaveState file in read-write mode, creating a new savestate if none exists with given filename.
 
         :param filename: Name of the savestate to open.
-        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the savestate before closing the it.
+        :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
+        :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
@@ -376,6 +378,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
+        # [sic] implementing this in _convert_to_bytes would be slower
         if self._dbm_mode:
             key = key.encode() if isinstance(key, str) else key
             value = value.encode() if isinstance(value, str) else value
@@ -408,6 +411,7 @@ class _SaveStateCreate(_SaveStateReadOnly):
         :raises pickle.PicklingError: Key is not pickleable.
         """
 
+        # [sic] implementing this in _convert_to_bytes would be slower
         if self._dbm_mode:
             key = key.encode() if isinstance(key, str) else key
         else:
@@ -594,8 +598,8 @@ class _SaveStateReadWrite(_SaveStateCreate):
         """Encapsulate a SaveState file in read-write mode, raises SaveStateError if savestate does not exist.
 
         :param filename: Name of the savestate to open.
-        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the savestate before closing the savestate.
+        :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
+        :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
@@ -630,8 +634,8 @@ class _SaveStateNew(_SaveStateCreate):
         """Encapsulate a SaveState file in read-write mode, creating a new savestate even if one exists for given filename.
 
         :param filename: Name of the savestate to open.
-        :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call.
-        :param compact: Indicate whether or not to compact the savestate before closing the it.
+        :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
+        :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
         """
 
@@ -650,15 +654,15 @@ def _add_file_identifier(filename: str) -> str:
 
 
 def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):  # noqa
-    """Open a Savestate.
+    """Open a Savestate file.
 
-    :param filename: The name of the savestate to open.
+    :param filename: The name of the savestate to open. Will have the '.savestate' file extension added to it, if it doesn't have it.
     :param flag: Specifies how the savestate should be opened.
-                 'r' = Open existing savestate for reading only (default).
-                 'w' = Open existing savestate for reading and writing.
-                 'c' = Open savestate for reading and writing, creating it if it doesn't exist.
+                 'r' = Open an existing savestate for reading only (default).
+                 'w' = Open an existing savestate for reading and writing.
+                 'c' = Open a savestate for reading and writing, creating it if it doesn't exist.
                  'n' = Always create a new, empty savestate, open for reading and writing.
-    :param verify_checksums: Verify that the checksums for each value are correct on every __getitem__ call
+    :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
     :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
     :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
     :raises ValueError: Flag argument incorrect.

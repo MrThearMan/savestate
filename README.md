@@ -1,16 +1,18 @@
 ## SaveState - persistent storage of arbitrary python objects
 
-SaveState is meant to be a cross-platform fast file storage for arbitrary python objects, similarly to python's [shelve](https://docs.python.org/3/library/shelve.html)-module.
+SaveState is meant to be a cross-platform fast file storage for arbitrary python objects, similar to python's [shelve](https://docs.python.org/3/library/shelve.html) module.
 It's mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with more mapping-like functions, a context manager, and the aforementioned support for arbitrary python objects.
 
 ### Implementation details:
+- Pure python
 - No requirements or dependencies
 - A dict-like interface (no unions)
 - Same, single file on windows and linux (unlike shelve)
 - Key and value integrity can be evaluated with a checksum, which will detect data corruption on key access.
-  - This is also used to recover from data corruption by skipping data which can't be validated
-- Objects have to support [pickling](https://docs.python.org/3/library/pickle.html#module-pickle) so that they can be used with savestate.
+- Recovery from missing bytes at the end of the file, or small amounts of corrupted data in the middle
+- Both values AND keys put in savestate have to support [pickling](https://docs.python.org/3/library/pickle.html#module-pickle).
 Note the [security implications](https://docs.python.org/3/library/pickle.html#module-pickle) of this!
+  - This means that you can use arbitrary objects as keys, if they support pickle (unlike shelve)
 - All the keys of the savestate are kept in memory, which limits the savestate size (not a problem for most applications)
 - NOT Thread safe, so can't be accessed by multiple processes
 - File is append-only, so the more non-read operations you do, the more the filesize is going to balloon
@@ -20,10 +22,11 @@ Note the [security implications](https://docs.python.org/3/library/pickle.html#m
 ### Performance:
 - About 50-60% of the performance of shelve with [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu) (linux), 
   but >5000% compared to shelve with [dumbdbm](https://docs.python.org/3/library/dbm.html#module-dbm.dumb) (windows) (>20000% for deletes!)
-  - Performance is more favourable with large keys and values when compared to [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu), 
-    but gdbm's still faster on subsequent reads/writes thanks to it's caching
-- A dbm-mode for about double the speed of reqular mode, but only string-type keys and value
-  - This is about 25-30% of the performance of [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu) on its own.
+  - Performance is more favourable with large keys and values when compared to gdbm, 
+    but gdbm is still faster on subsequent reads/writes thanks to its caching
+- A dbm-mode for about double the speed of reqular mode, but only string-type keys and values
+  - This is about 25-30% of the performance of gdbm on its own.
+  - Note: Values will be returned in bytes form!
   
 > Source code includes a benchmark that you can run to get more accurate performance on your specific machine.
 
@@ -39,11 +42,11 @@ Note the [security implications](https://docs.python.org/3/library/pickle.html#m
 >>> # Add data to savestate
 >>> state["foo"] = "bar"
 >>> 
->>> # Get item from savestate
+>>> # Get data from savestate
 >>> print(state["foo"])
 bar
 
->>> # Delete key from savestate
+>>> # Delete data from savestate
 >>> del state["foo"]
 >>> 
 >>> # Close the savestate
@@ -60,22 +63,22 @@ bar
 
 ## Documentation:
 
-##### *savestate.open(filename, flag, verify_checksums, compact, dbm_mode)*
-* **filename**: str - The name of the savestate. Will have .savestate added to it, if it doesn't have it.
+##### *savestate.open(filename, flag="r", verify_checksums=False, compact=False, dbm_mode=False)*
+* **filename**: str - The name of the savestate. Will have the '.savestate' file extension added to it, if it doesn't have it.
 * **flag**: Literal["r", "w", "c", "n"] - Specifies how the savestate should be opened.
   * "r" = Open existing savestate for reading only *(default)*.
   * "w" = Open existing savestate for reading and writing.
   * "c" = Open savestate for reading and writing, creating it if it doesn't exist.
   * "n" = Always create a new, empty savestate, open for reading and writing.
-* **verify_checksum**: bool - Verify that the checksums for each value are correct on every *\_\_getitem\_\_* call
+* **verify_checksum**: bool - Verify that the checksum for a key and value pair is correct on every *\_\_getitem\_\_* call
 * **compact**: bool - Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
-* **dbm_mode**: bool -  Operate in dbm mode. This is faster, but only allows strings for keys and values.
+* **dbm_mode**: bool - Operate in dbm mode. This is faster, but only allows strings for keys and values.
 
 
 #### 'Read-Only' mode:
 
 ```python
->>>  # Magic methods
+>>> # Magic methods
 >>> savestate[key]
 >>> key in savestate
 >>> len(savestate)
@@ -84,21 +87,21 @@ bar
 >>> str(savestate)
 >>> repr(savestate)
 >>>
->>>  # Properties
->>> savestate.filepath
->>> savestate.filename
+>>> # Properties
+>>> savestate.filepath  # absolute path (& filename)
+>>> savestate.filename  # filename (& extension)
 >>> savestate.isopen
 >>>
->>>  # Mapping-like methods
+>>> # Mapping-like methods
 >>> savestate.keys()
 >>> savestate.values()
 >>> savestate.items()
 >>> savestate.get(key: Any, default: Any = None)
 >>>
->>>  # Special methods
+>>> # Special methods
 >>> savestate.close()
->>>  ### Closes the savestate. Accessing keys after this 
->>>  ### will cause an AttributeError.
+>>> ### Closes the savestate. Accessing keys after this 
+>>> ### will cause an AttributeError.
 ```
 
 #### 'Read-Write', 'Create' and 'New' modes:
@@ -111,7 +114,7 @@ bar
 >>> 
 >>> # Mapping-like methods
 >>> savestate.pop(key: Any, default: Any = None)
->>> savestate.popitem() -> tuple[Any, Any]
+>>> savestate.popitem()
 >>> savestate.clear()
 >>> savestate.setdefault(key: Any, default: Any = None)
 >>> savestate.update(other: Mapping[Any, Any], **kwargs: Any)
