@@ -1,7 +1,7 @@
 ## SaveState - persistent storage of arbitrary python objects
 
-SaveState is meant to be a cross-platform fast file storage for arbitrary python objects, similar to python's [shelve](https://docs.python.org/3/library/shelve.html) module.
-It's mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with more mapping-like functions, a context manager, and the aforementioned support for arbitrary python objects.
+SaveState is meant to be a cross-platform fast file storage for arbitrary python objects, like python's [shelve](https://docs.python.org/3/library/shelve.html) module.
+It is mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with more mapping-like functions, a context manager, and the aforementioned support for arbitrary python objects.
 
 ### Implementation details:
 - Pure python
@@ -10,21 +10,21 @@ It's mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with
 - Same, single file on windows and linux (unlike shelve)
 - Key and value integrity can be evaluated with a checksum, which will detect data corruption on key access.
 - Recovery from missing bytes at the end of the file, or small amounts of corrupted data in the middle
-- Both values AND keys put in savestate have to support [pickling](https://docs.python.org/3/library/pickle.html#module-pickle).
+- Both values AND keys put in savestate must support [pickling](https://docs.python.org/3/library/pickle.html#module-pickle).
 Note the [security implications](https://docs.python.org/3/library/pickle.html#module-pickle) of this!
-  - This means that you can use arbitrary objects as keys, if they support pickle (unlike shelve)
+  - This means that you can use arbitrary objects as keys if they support pickle (unlike shelve)
 - All the keys of the savestate are kept in memory, which limits the savestate size (not a problem for most applications)
-- NOT Thread safe, so can't be accessed by multiple processes
-- File is append-only, so the more non-read operations you do, the more the filesize is going to balloon
-  - Howevever, you can *compact* the savestate, usually on *savestate.close()*, which will replace the savestate with a new file with only the current non-deleted data.
+- NOT Thread safe, so cannot be accessed by multiple processes
+- File is append-only, so the more non-read operations you do, the more the file size is going to balloon
+  - However, you can *compact* the savestate, usually on *savestate.close()*, which will replace the savestate with a new file with only the current non-deleted data.
   This will impact performance a little, but not by much
   
 ### Performance:
 - About 50-60% of the performance of shelve with [gdbm](https://docs.python.org/3/library/dbm.html#module-dbm.gnu) (linux), 
   but >5000% compared to shelve with [dumbdbm](https://docs.python.org/3/library/dbm.html#module-dbm.dumb) (windows) (>20000% for deletes!)
-  - Performance is more favourable with large keys and values when compared to gdbm, 
+  - Performance is more favorable with large keys and values when compared to gdbm, 
     but gdbm is still faster on subsequent reads/writes thanks to its caching
-- A dbm-mode for about double the speed of reqular mode, but only string-type keys and values
+- A dbm-mode for about double the speed of regular mode, but only string-type keys and values
   - This is about 25-30% of the performance of gdbm on its own.
   - Note: Values will be returned in bytes form!
   
@@ -53,7 +53,7 @@ bar
 >>> state.close()
 ```
 
-#### Use as a contect manager:
+#### Use as a context manager:
 
 ```python
 >>> with savestate.open("filename.savestate", "c") as state:   
@@ -64,14 +64,14 @@ bar
 ## Documentation:
 
 ##### *savestate.open(filename, flag="r", verify_checksums=False, compact=False, dbm_mode=False)*
-* **filename**: str - The name of the savestate. Will have the '.savestate' file extension added to it, if it doesn't have it.
+* **filename**: str - The name of the savestate. Will have the '.savestate' file extension added to it if it doesn't have it.
 * **flag**: Literal["r", "w", "c", "n"] - Specifies how the savestate should be opened.
   * "r" = Open existing savestate for reading only *(default)*.
   * "w" = Open existing savestate for reading and writing.
-  * "c" = Open savestate for reading and writing, creating it if it doesn't exist.
+  * "c" = Open savestate for reading and writing, creating it if it does not exist.
   * "n" = Always create a new, empty savestate, open for reading and writing.
 * **verify_checksum**: bool - Verify that the checksum for a key and value pair is correct on every *\_\_getitem\_\_* call
-* **compact**: bool - Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
+* **compact**: bool - Indicate whether to compact the savestate before closing it. No effect in read only mode.
 * **dbm_mode**: bool - Operate in dbm mode. This is faster, but only allows strings for keys and values.
 
 
@@ -126,7 +126,7 @@ bar
 >>>
 >>> # Special methods
 >>> savestate.sync()
->>> ### Flushes existing databuffers and ensures that data
+>>> ### Flushes existing data buffers and ensures that data
 >>> ### is written to the disk. Always called on savestate.close()
 >>> savestate.compact()
 >>> ### Rewrite the contents of the files, which will
