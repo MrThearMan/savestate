@@ -52,7 +52,7 @@ else:
     DATA_OPEN_FLAGS_READONLY = os.O_RDONLY
 
 DELETED: int = 0
-"""Signifies item has been deleated."""
+"""Signifies item has been deleated from the savestate."""
 
 # Header Info
 FILE_IDENTIFIER: bytes = b'savestate'
@@ -78,11 +78,12 @@ class _SaveStateReadOnly:
     """SaveState file in read-only mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, dbm_mode: bool = False):
-        """Encapsulate a SaveState file in read-only mode, raises SaveStateError if savestate does not exist.
+        """Encapsulate a SaveState file in read-only mode.
 
         :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
+        :raises SaveStateError: Savestate file does not exist.
         """
 
         if not os.path.isfile(filename):
@@ -242,7 +243,7 @@ class _SaveStateReadOnly:
             self._verify_header(header=f.read(HEADER_SIZE))
 
             offset: int = HEADER_SIZE
-            needed_bytes: int = 0
+            missing_bytes: int = 0
 
             with mmap.mmap(fileno=f.fileno(), length=0, access=mmap.ACCESS_READ) as contents:
                 while True:
@@ -252,12 +253,8 @@ class _SaveStateReadOnly:
 
                     try:
                         key_size, val_size = struct.unpack(KEYVAL_IND_FORMAT, contents[offset:offset + KEYVAL_IND_SIZE])
-                        if key_size < 1:
-                            warnings.warn(f"Improper key length '{key_size}' at position {offset}/{len(contents)}. "
-                                          f"Could not continue to read data.", category=BytesWarning)
-                            break
-                        elif val_size < 0:
-                            warnings.warn(f"Improper key length '{val_size}' at position {offset + KEYVAL_IND_SIZE / 2}/{len(contents)}. "
+                        if key_size == 0:
+                            warnings.warn(f"Zero key size at position {offset}/{len(contents)}. "
                                           f"Could not continue to read data.", category=BytesWarning)
                             break
                     except struct.error:
@@ -265,9 +262,10 @@ class _SaveStateReadOnly:
                                       f"at position {offset}/{len(contents)}.", category=BytesWarning)
                         break
 
-                    needed_bytes = (offset + KEYVAL_IND_SIZE + key_size + val_size + CHECKSUM_SIZE) - len(contents)
-                    if needed_bytes > 0:
-                        warnings.warn(f"Some of the data is missing at the end of the file. Compaction necessary.", category=BytesWarning)
+                    missing_bytes = (offset + KEYVAL_IND_SIZE + key_size + val_size + CHECKSUM_SIZE) - len(contents)
+                    if missing_bytes > 0:
+                        warnings.warn(f"Some of the data is missing at the end of the file. "
+                                      f"Compaction necessary.", category=BytesWarning)
                         break
 
                     offset += KEYVAL_IND_SIZE
@@ -279,15 +277,16 @@ class _SaveStateReadOnly:
                         yield key, offset, val_size
 
                     except SaveStateChecksumError:
-                        warnings.warn(f"Data was corrupted at position {offset}/{len(contents)}. Compaction necessary.", category=BytesWarning)
+                        warnings.warn(f"Data was corrupted at position {offset}/{len(contents)}. "
+                                      f"Compaction necessary.", category=BytesWarning)
 
                     offset += (val_size + CHECKSUM_SIZE)
 
         # If file doesn't have enought bytes, fill with blank data to
         # recover from errors that would arise when writing more data to the file.
-        if needed_bytes > 0:
+        if missing_bytes > 0:
             with builtins.open(filename, "ab+") as f:
-                f.write(b"\x00" * needed_bytes)
+                f.write(b"\x00" * missing_bytes)
 
     def _load_index(self, filename: str) -> dict[bytes, tuple[int, int]]:
         """This method is only used upon instantiation to populate the in memory index."""
@@ -595,12 +594,13 @@ class _SaveStateReadWrite(_SaveStateCreate):
     """SaveState file in read-write mode, error if doesn't exist."""
 
     def __init__(self, filename: str, verify_checksums: bool = False, compact: bool = False, dbm_mode: bool = False):
-        """Encapsulate a SaveState file in read-write mode, raises SaveStateError if savestate does not exist.
+        """Encapsulate a SaveState file in read-write mode.
 
         :param filename: Name of the savestate to open.
         :param verify_checksums: Verify that the checksum for a key and value pair is correct on every __getitem__ call
         :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
         :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
+        :raises SaveStateError: Savestate file does not exist.
         """
 
         if not os.path.isfile(filename):
@@ -666,6 +666,7 @@ def open(filename: str, flag: Literal["r", "w", "c", "n"] = "r", verify_checksum
     :param compact: Indicate whether or not to compact the savestate before closing it. No effect in read only mode.
     :param dbm_mode: Operate in dbm mode. This is faster, but only allows strings for keys and values.
     :raises ValueError: Flag argument incorrect.
+    :raises SaveStateError: If flag is "r" or "w", and Savestate file does not exist.
     """
 
     filename = _add_file_identifier(filename)
