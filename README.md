@@ -1,5 +1,9 @@
 ## SaveState - persistent storage of arbitrary python objects
 
+```
+pip install savestate
+```
+
 SaveState is meant to be a cross-platform fast file storage for arbitrary python objects, like python's [shelve](https://docs.python.org/3/library/shelve.html) module.
 It is mostly a rewrite of [semidbm2](https://github.com/quora/semidbm2), but with more mapping-like functions, a context manager, and the aforementioned support for arbitrary python objects.
 
