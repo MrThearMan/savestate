@@ -1,13 +1,11 @@
 """Persistent storage for arbitrary python objects inspired by SemiDBM and Shelve.
 
 Data structure and byte sizes are as follows:
-⠀\n
-⠀\n
-Header:⠀<file_identifier: 9 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>\n
-Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
-⠀⠀⠀⠀⠀⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>\n
-⠀⠀⠀⠀⠀⠀⠀⠀...\n
-⠀\n
+
+Header:⠀<file_identifier: 9 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>
+Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>
+⠀⠀⠀⠀⠀⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>
+
 """
 
 import os

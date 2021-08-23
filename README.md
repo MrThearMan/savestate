@@ -38,31 +38,30 @@ Note the [security implications](https://docs.python.org/3/library/pickle.html#m
 
 #### Use with open and close:
 ```python
->>> import savestate
->>> 
->>> # Open savestate
->>> state = savestate.open("savestate", "c")
->>> 
->>> # Add data to savestate
->>> state["foo"] = "bar"
->>> 
->>> # Get data from savestate
->>> print(state["foo"])
-bar
+import savestate
 
->>> # Delete data from savestate
->>> del state["foo"]
->>> 
->>> # Close the savestate
->>> state.close()
+# Open savestate
+state = savestate.open("savestate", "c")
+
+# Add data to savestate
+state["foo"] = "bar"
+
+# Get data from savestate
+state["foo"]   # -> bar
+
+# Delete data from savestate
+del state["foo"]
+
+# Close the savestate
+state.close()
 ```
 
 #### Use as a context manager:
 
 ```python
->>> with savestate.open("filename.savestate", "c") as state:   
->>>     state["foo"] = "baz"                                                   
->>>     ...
+with savestate.open("filename.savestate", "c") as state:   
+    state["foo"] = "baz"                                                   
+    ...
 ```
 
 ## Documentation:
@@ -82,60 +81,60 @@ bar
 #### 'Read-Only' mode:
 
 ```python
->>> # Magic methods
->>> savestate[key]
->>> key in savestate
->>> len(savestate)
->>> iter(savestate)
->>> reversed(savestate)
->>> str(savestate)
->>> repr(savestate)
->>>
->>> # Properties
->>> savestate.filepath  # absolute path (& filename)
->>> savestate.filename  # filename (& extension)
->>> savestate.isopen
->>>
->>> # Mapping-like methods
->>> savestate.keys()
->>> savestate.values()
->>> savestate.items()
->>> savestate.get(key: Any, default: Any = None)
->>>
->>> # Special methods
->>> savestate.close()
->>> ### Closes the savestate. Accessing keys after this 
->>> ### will cause an AttributeError.
+# Magic methods
+savestate[key]
+key in savestate
+len(savestate)
+iter(savestate)
+reversed(savestate)
+str(savestate)
+repr(savestate)
+
+# Properties
+savestate.filepath  # absolute path (& filename)
+savestate.filename  # filename (& extension)
+savestate.isopen
+
+# Mapping-like methods
+savestate.keys()
+savestate.values()
+savestate.items()
+savestate.get(key: Any, default: Any = None)
+
+# Special methods
+savestate.close()
+### Closes the savestate. Accessing keys after this 
+### will cause an AttributeError.
 ```
 
 #### 'Read-Write', 'Create' and 'New' modes:
 - Extend read-only mode with these methods
 
 ```python
->>> # Magic methods
->>> savestate[key] = value
->>> del savestate[key]
->>> 
->>> # Mapping-like methods
->>> savestate.pop(key: Any, default: Any = None)
->>> savestate.popitem()
->>> savestate.clear()
->>> savestate.setdefault(key: Any, default: Any = None)
->>> savestate.update(other: Mapping[Any, Any], **kwargs: Any)
->>> savestate.copy(new_filename: str)
->>> ### AssertionError if new filename is same as current one.
->>> ### THIS WILL OVERWRITE ANY FILES WITH THE GIVEN FILENAME!
->>> ### Note: new filename will have '.savestate' added to it, 
->>> ### if it doesn't have it
->>>
->>> # Special methods
->>> savestate.sync()
->>> ### Flushes existing data buffers and ensures that data
->>> ### is written to the disk. Always called on savestate.close()
->>> savestate.compact()
->>> ### Rewrite the contents of the files, which will
->>> ### reduce the size of the file due to implementation details
->>> savestate.close(compact: bool = False)
->>> ### Setting compact=True will compact the savestate
->>> ### even if it was not set so at savestate.open()
+# Magic methods
+savestate[key] = value
+del savestate[key]
+
+# Mapping-like methods
+savestate.pop(key: Any, default: Any = None)
+savestate.popitem()
+savestate.clear()
+savestate.setdefault(key: Any, default: Any = None)
+savestate.update(other: Mapping[Any, Any], **kwargs: Any)
+savestate.copy(new_filename: str)
+### AssertionError if new filename is same as current one.
+### THIS WILL OVERWRITE ANY FILES WITH THE GIVEN FILENAME!
+### Note: new filename will have '.savestate' added to it, 
+### if it doesn't have it
+
+# Special methods
+savestate.sync()
+### Flushes existing data buffers and ensures that data
+### is written to the disk. Always called on savestate.close()
+savestate.compact()
+### Rewrite the contents of the files, which will
+### reduce the size of the file due to implementation details
+savestate.close(compact: bool = False)
+### Setting compact=True will compact the savestate
+### even if it was not set so at savestate.open()
 ```
