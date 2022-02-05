@@ -20,12 +20,12 @@ pip install savestate
 
 ---
 
-SaveState is a cross-platform fast file storage for arbitrary python objects. 
+SaveState is a cross-platform fast file storage for arbitrary python objects.
 It's similar to python's builtin [shelve][shelve] module, but aims to be more
 performant on Windows while being cross-platform compatible.
 
 Savestate is inspired by [semidbm2][semidbm2], with a more modern interface.
-mapping-like functions, a context manager, and support for 
+mapping-like functions, a context manager, and support for
 arbitrary python objects.
 
 ## Implementation details
@@ -43,16 +43,16 @@ Note the [security implications][security] of this!
 - File is append-only, so the more non-read operations you do, the more the file size is going to balloon
   - However, you can *compact* the savestate, usually on *savestate.close()*, which will replace the savestate with a new file with only the current non-deleted data.
   This will impact performance a little, but not by much
-  
+
 ## Performance
-- About 50-60% of the performance of shelve with [gdbm][gdbm] (linux), 
+- About 50-60% of the performance of shelve with [gdbm][gdbm] (linux),
   but >5000% compared to shelve with [dumbdbm][dumbdbm] (windows) (>20000% for deletes!)
-  - Performance is more favorable with large keys and values when compared to gdbm, 
+  - Performance is more favorable with large keys and values when compared to gdbm,
     but gdbm is still faster on subsequent reads/writes thanks to its caching
 - A dbm-mode for about double the speed of regular mode, but only string-type keys and values
   - This is about 25-30% of the performance of gdbm on its own.
   - Note: Values will be returned in bytes form!
-  
+
 > Source code includes a benchmark that you can run to get more accurate performance on your specific machine.
 
 
@@ -63,7 +63,7 @@ Note the [security implications][security] of this!
 [gdbm]: https://docs.python.org/3/library/dbm.html#module-dbm.gnu
 [dumbdbm]: https://docs.python.org/3/library/dbm.html#module-dbm.dumb
 
-[coverage-badge]: https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=main
+[coverage-badge]: https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=master
 [status-badge]: https://img.shields.io/github/workflow/status/MrThearMan/savestate/Tests
 [pypi-badge]: https://img.shields.io/pypi/v/savestate
 [licence-badge]: https://img.shields.io/github/license/MrThearMan/savestate
@@ -71,9 +71,9 @@ Note the [security implications][security] of this!
 [issues-badge]: https://img.shields.io/github/issues-raw/MrThearMan/savestate
 [version-badge]: https://img.shields.io/pypi/pyversions/savestate
 
-[coverage]: https://coveralls.io/github/MrThearMan/savestate?branch=main
+[coverage]: https://coveralls.io/github/MrThearMan/savestate?branch=master
 [status]: https://github.com/MrThearMan/savestate/actions/workflows/main.yml
 [pypi]: https://pypi.org/project/savestate
-[licence]: https://github.com/MrThearMan/savestate/blob/main/LICENSE
-[repo]: https://github.com/MrThearMan/savestate/commits/main
+[licence]: https://github.com/MrThearMan/savestate/blob/master/LICENSE
+[repo]: https://github.com/MrThearMan/savestate/commits/master
 [issues]: https://github.com/MrThearMan/savestate/issues
