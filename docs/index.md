@@ -28,7 +28,7 @@ Savestate is inspired by [semidbm2][semidbm2], with a more modern interface.
 mapping-like functions, a context manager, and support for 
 arbitrary python objects.
 
-### Implementation details:
+## Implementation details
 - Pure python
 - No requirements or dependencies
 - A dict-like interface (no unions)
@@ -44,7 +44,7 @@ Note the [security implications][security] of this!
   - However, you can *compact* the savestate, usually on *savestate.close()*, which will replace the savestate with a new file with only the current non-deleted data.
   This will impact performance a little, but not by much
   
-### Performance:
+## Performance
 - About 50-60% of the performance of shelve with [gdbm][gdbm] (linux), 
   but >5000% compared to shelve with [dumbdbm][dumbdbm] (windows) (>20000% for deletes!)
   - Performance is more favorable with large keys and values when compared to gdbm, 

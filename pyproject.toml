@@ -1,6 +1,127 @@
-[build-system]
-requires = [
-    "setuptools>=42",
-    "wheel",
+[tool.poetry]
+name = "savestate"
+version = "0.1.0"
+description = "Persistent storage of arbitrary python objects"
+authors = [
+    "Matti Lamppu <lamppu.matti.akseli@gmail.com>",
 ]
-build-backend = "setuptools.build_meta"
+packages = [
+    { include = "savestate" },
+]
+license = "MIT"
+readme = "README.md"
+homepage = "https://mrthearman.github.io/savestate/"
+repository = "https://github.com/MrThearMan/savestate"
+keywords = [
+    "savestate",
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+]
+include = [
+    "README.md",
+    "LICENSE",
+]
+exclude = [
+    "tests",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/MrThearMan/savestate/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
+
+[tool.poetry.dev-dependencies]
+pytest-cov = "^3.0.0"
+tomli = "^2.0.0"
+pre-commit = "^2.17.0"
+tox = "^3.24.5"
+tox-gh-actions = "^2.9.1"
+coveralls = "^3.3.1"
+black = "^22.1.0"
+isort = "^5.10.1"
+flake8 = "^4.0.1"
+mypy = "^0.931"
+pylint = "^2.12.2"
+mkdocs = "^1.2.3"
+pymdown-extensions = "^9.1"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = "True"
+lines_after_imports = 2
+
+[tool.pylint.MASTER]
+ignore-paths = [
+    "tests/*",
+    "docs/*",
+    ".venv/*",
+    ".tox/*",
+]
+
+[tool.pylint.messages_control]
+disable = "C0330, C0326, C0114, C0115, C0116, R0903, R0913, R1721, W1203, E0401"
+
+[tool.pylint.format]
+max-line-length = "120"
+
+[tool.pylint.miscellaneous]
+notes = "FIXME,XXX,BUG"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = "True"
+warn_unused_configs = "True"
+
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.report]
+omit = [
+    "tests/*",
+    "docs/*",
+    ".venv/*",
+    ".tox/*",
+]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "except ImportError:",
+    "pragma: no cover",
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{39, 310}
+isolated_build = true
+
+[gh-actions]
+python =
+    3.9: py39
+    3.10: py310
+
+[testenv]
+whitelist_externals =
+    poetry
+setenv =
+    PYTHONPATH = {toxinidir}
+commands =
+    poetry install
+    poetry run coverage run -m pytest -vv -s --log-cli-level=INFO
+"""
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

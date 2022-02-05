@@ -1,0 +1,16 @@
+site_name: Savestate
+nav:
+  - Home: index.md
+  - Quickstart: quick.md
+  - Documentation: docs.md
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:  # https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md
+    - python
+    - console
+    - json
+
+extra_css:
+  - css/docs.md.css
