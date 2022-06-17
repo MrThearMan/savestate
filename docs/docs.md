@@ -39,7 +39,7 @@ savestate.get(key: Any, default: Any = None)
 
 # Special methods
 savestate.close()
-### Closes the savestate. Accessing keys after this 
+### Closes the savestate. Accessing keys after this
 ### will cause an AttributeError.
 ```
 
@@ -60,7 +60,7 @@ savestate.update(other: Mapping[Any, Any], **kwargs: Any)
 savestate.copy(new_filename: str)
 ### AssertionError if new filename is same as current one.
 ### THIS WILL OVERWRITE ANY FILES WITH THE GIVEN FILENAME!
-### Note: new filename will have '.savestate' added to it, 
+### Note: new filename will have '.savestate' added to it,
 ### if it doesn't have it
 
 # Special methods

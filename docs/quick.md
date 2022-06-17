@@ -23,7 +23,7 @@ state.close()
 ## Use as a context manager:
 
 ```python
-with savestate.open("filename.savestate", "c") as state:   
-    state["foo"] = "baz"                                                   
+with savestate.open("filename.savestate", "c") as state:  
+    state["foo"] = "baz"  
     ...
 ```
