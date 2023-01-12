@@ -35,8 +35,12 @@ from typing import (
     Union,
 )
 
-
-__all__ = ["open", "SaveStateError", "SaveStateLoadError", "SaveStateChecksumError"]
+__all__ = [
+    "open",
+    "SaveStateError",
+    "SaveStateLoadError",
+    "SaveStateChecksumError",
+]
 
 
 class SaveStateError(Exception):
@@ -110,7 +114,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
         self._verify_checksums = verify_checksums
 
         self._index: Dict[bytes, Tuple[int, int]] = self._load_index(self._savestate_name)
-        """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple 
+        """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
         self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
@@ -266,7 +270,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                     missing_bytes = (offset + KEYVAL_IND_SIZE + key_size + val_size + CHECKSUM_SIZE) - len(contents)
                     if missing_bytes > 0:
                         warnings.warn(
-                            f"Some data is missing at the end of the file. Compaction necessary.",
+                            "Some data is missing at the end of the file. Compaction necessary.",
                             category=BytesWarning,
                         )
                         break
@@ -388,7 +392,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         self._verify_checksums = verify_checksums
 
         self._index: Dict[bytes, Tuple[int, int]] = self._load_index(self._savestate_name)
-        """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple 
+        """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
         self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
@@ -564,7 +568,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         """Creates a copy of this savestate by writing all the keys from this savestate to the new savestate."""
 
         new_filename = _add_file_identifier(new_filename)
-        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."
+        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."  # noqa
 
         new_savestate = self.__class__(
             filename=new_filename,
@@ -662,7 +666,7 @@ class _SaveStateReadWrite(_SaveStateCreate):
         # After copying, both of them can be closed and opened in 'read-write' mode.
 
         new_filename = _add_file_identifier(new_filename)
-        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."
+        assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."  # noqa
 
         self.close()
         same_savestate = open(

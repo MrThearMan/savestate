@@ -63,17 +63,17 @@ Note the [security implications][security] of this!
 [gdbm]: https://docs.python.org/3/library/dbm.html#module-dbm.gnu
 [dumbdbm]: https://docs.python.org/3/library/dbm.html#module-dbm.dumb
 
-[coverage-badge]: https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=master
-[status-badge]: https://img.shields.io/github/workflow/status/MrThearMan/savestate/Tests
+[coverage-badge]: https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=main
+[status-badge]: https://img.shields.io/github/actions/workflow/status/MrThearMan/savestate/test.yml?branch=main
 [pypi-badge]: https://img.shields.io/pypi/v/savestate
 [licence-badge]: https://img.shields.io/github/license/MrThearMan/savestate
 [repo-badge]: https://img.shields.io/github/last-commit/MrThearMan/savestate
 [issues-badge]: https://img.shields.io/github/issues-raw/MrThearMan/savestate
 [version-badge]: https://img.shields.io/pypi/pyversions/savestate
 
-[coverage]: https://coveralls.io/github/MrThearMan/savestate?branch=master
-[status]: https://github.com/MrThearMan/savestate/actions/workflows/main.yml
+[coverage]: https://coveralls.io/github/MrThearMan/savestate?branch=main
+[status]: https://github.com/MrThearMan/savestate/actions/workflows/test.yml
 [pypi]: https://pypi.org/project/savestate
-[licence]: https://github.com/MrThearMan/savestate/blob/master/LICENSE
-[repo]: https://github.com/MrThearMan/savestate/commits/master
+[licence]: https://github.com/MrThearMan/savestate/blob/main/LICENSE
+[repo]: https://github.com/MrThearMan/savestate/commits/main
 [issues]: https://github.com/MrThearMan/savestate/issues
