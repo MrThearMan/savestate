@@ -35,7 +35,6 @@ def test_flags():
 
     # Test read only mode
     with savestate.open(filename=SAVESTATE_FILE, flag="r") as db:
-
         # All methods that read-only does should not have
         assert not hasattr(db, "__setitem__")
         assert not hasattr(db, "__delitem__")
@@ -712,7 +711,6 @@ def test_warns_but_recovers_from_missing_data_at_the_end_of_the_file():
 
 
 def test_warns_but_recovers_from_trying_to_read_past_the_end_of_the_file():
-
     with savestate.open(filename=SAVESTATE_FILE, flag="n") as db:
         db["one"] = "bar"
         db["two"] = "bar"

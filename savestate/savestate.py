@@ -244,7 +244,6 @@ class _SaveStateReadOnly(Mapping, Reversible):
             contents: bytes
             with mmap.mmap(fileno=f.fileno(), length=0, access=mmap.ACCESS_READ) as contents:
                 while True:
-
                     if offset >= len(contents):
                         break  # End of file, so stop reading values
 
@@ -257,6 +256,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                                 f"Zero key size at position {offset}/{len(contents)}. "
                                 f"Could not continue to read data.",
                                 category=BytesWarning,
+                                stacklevel=2,
                             )
                             break
                     except struct.error:
@@ -264,6 +264,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                             f"Key and value size indicators could not be unpacked from file "
                             f"at position {offset}/{len(contents)}.",
                             category=BytesWarning,
+                            stacklevel=2,
                         )
                         break
 
@@ -272,6 +273,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                         warnings.warn(
                             "Some data is missing at the end of the file. Compaction necessary.",
                             category=BytesWarning,
+                            stacklevel=2,
                         )
                         break
 
@@ -289,6 +291,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                         warnings.warn(
                             f"Data was corrupted at position {offset}/{len(contents)}. Compaction necessary.",
                             category=BytesWarning,
+                            stacklevel=2,
                         )
 
                     offset += val_size + CHECKSUM_SIZE
@@ -324,7 +327,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
     @staticmethod
     def _convert_from_bytes(value: bytes) -> Any:
-        return pickle.loads(value)
+        return pickle.loads(value)  # noqa: S301
 
     @staticmethod
     def _verify_header(header: bytes):

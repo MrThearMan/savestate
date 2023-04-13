@@ -21,7 +21,6 @@ def _log_on_same_line(text):
 
 def _generate_random_data(length: int, ks: int, vs: int) -> Generator[tuple[bytes, bytes], None, None]:
     for i in range(length):
-
         # Display progress
         _log_on_same_line(f" {i + 1}/{length}\r")
 
@@ -31,7 +30,6 @@ def _generate_random_data(length: int, ks: int, vs: int) -> Generator[tuple[byte
 
 
 if __name__ == "__main__":
-
     import shelve
 
     import savestate
@@ -69,7 +67,6 @@ if __name__ == "__main__":
 
         clear_savestate_dir()
         with d.open(file, "n") as db:
-
             # --- Write random --------------------------------------------------------------
 
             start = time.time()
