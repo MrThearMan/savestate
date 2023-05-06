@@ -3,8 +3,8 @@ r"""Persistent storage for arbitrary python objects inspired by SemiDBM and Shel
 Data structure and byte sizes are as follows:
 
 Header:⠀<file_identifier: 9 bytes> <file_format_version: 2 bytes> <pickle_version: 2 bytes>
-Data:⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>
-⠀⠀⠀⠀⠀⠀⠀⠀<keysize: 4 bytes> <valsize: 4 bytes> <key: 'keysize' bytes> <val: 'valsize' bytes> <checksum: 4 bytes>
+Data:⠀⠀⠀<key_size: 4 bytes> <val_size: 4 bytes> <key: 'key_size' bytes> <val: 'val_size' bytes> <checksum: 4 bytes>
+⠀⠀⠀⠀⠀⠀⠀⠀<key_size: 4 bytes> <key_size: 4 bytes> <key: 'key_size' bytes> <val: 'val_size' bytes> <checksum: 4 bytes>
 
 """
 
@@ -68,7 +68,7 @@ else:  # pragma: no cover
     DATA_OPEN_FLAGS_READONLY = os.O_RDONLY
 
 DELETED: int = 0
-"""Signifies item has been deleated from the savestate."""
+"""Signifies item has been deleted from the savestate."""
 
 # Header Info
 FILE_IDENTIFIER: bytes = b"savestate"
@@ -296,7 +296,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
                     offset += val_size + CHECKSUM_SIZE
 
-        # If file doesn't have enought bytes, fill with blank data to
+        # If file doesn't have enough bytes, fill with blank data to
         # recover from errors that would arise when writing more data to the file.
         if missing_bytes > 0:
             with builtins.open(filename, "ab+") as f:
@@ -604,11 +604,11 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
             import ctypes
             from ctypes.wintypes import DWORD, LPVOID
 
-            lpctstr = ctypes.c_wchar_p
+            lpct_str = ctypes.c_wchar_p
             kernel32 = ctypes.windll.kernel32
-            kernel32.ReplaceFile.argtypes = [lpctstr, lpctstr, lpctstr, DWORD, LPVOID, LPVOID]
+            kernel32.ReplaceFile.argtypes = [lpct_str, lpct_str, lpct_str, DWORD, LPVOID, LPVOID]
 
-            rc = kernel32.ReplaceFile(lpctstr(str(to_file)), lpctstr(str(from_file)), None, 0, None, None)
+            rc = kernel32.ReplaceFile(lpct_str(str(to_file)), lpct_str(str(from_file)), None, 0, None, None)
             if rc == 0:
                 raise OSError(f"Can't rename file, error: {kernel32.GetLastError()}")
 
@@ -730,14 +730,14 @@ class _SaveStateNew(_SaveStateCreate):
 
 
 def _add_file_identifier(filename: Path) -> Path:
-    """Adds savestat file identifier to the path."""
+    """Adds savestate file identifier to the path."""
     if filename.suffix == FILE_SUFFIX:
         return filename
     return filename.with_suffix(FILE_SUFFIX)
 
 
 def open(  # noqa
-    filename: Path,
+    filename: Union[str, Path],
     flag: Literal["r", "w", "c", "n"] = "r",
     verify_checksums: bool = False,
     compact: bool = False,
@@ -758,6 +758,9 @@ def open(  # noqa
     :raises ValueError: Flag argument incorrect.
     :raises SaveStateError: If flag is "r" or "w", and Savestate file does not exist.
     """
+
+    if isinstance(filename, str):
+        filename = Path(filename)
 
     filename = _add_file_identifier(filename)
 
