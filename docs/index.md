@@ -18,6 +18,8 @@ pip install savestate
 
 **Source Code**: [https://github.com/MrThearMan/savestate/](https://github.com/MrThearMan/savestate/)
 
+**Contributing**: [https://github.com/MrThearMan/savestate/blob/main/CONTRIBUTING.md](https://github.com/MrThearMan/savestate/blob/main/CONTRIBUTING.md)
+
 ---
 
 SaveState is a cross-platform fast file storage for arbitrary python objects.
