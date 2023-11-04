@@ -5,8 +5,7 @@
 .PHONY: test
 .PHONY: tox
 .PHONY: hook
-.PHONY: pre-commit
-.PHONY: pre-commit-update
+.PHONY: lint
 .PHONY: mypy
 .PHONY: Makefile
 
@@ -18,19 +17,26 @@ args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
 %:
 	@:
 
-help:
-	@echo ""
-	@echo "Commands:"
-	@echo "  dev                  Serve manual testing server"
-	@echo "  docs                 Serve mkdocs for development."
-	@echo "  tests                Run all tests with coverage."
-	@echo "  test <name>          Run all tests maching the given <name>"
-	@echo "  tox                  Run all tests with tox."
-	@echo "  hook                 Install pre-commit hook."
-	@echo "  pre-commit           Run pre-commit hooks on all files."
-	@echo "  pre-commit-update    Update all pre-commit hooks to latest versions."
-	@echo "  mypy                 Run mypy on all files."
+define helptext
 
+  Commands:
+
+  dev                  Serve manual testing server
+  docs                 Serve mkdocs for development.
+  tests                Run all tests with coverage.
+  test <name>          Run all tests maching the given <name>
+  tox                  Run all tests with tox.
+  hook                 Install pre-commit hook.
+  lint                 Run pre-commit hooks on all files.
+  mypy                 Run mypy on all files.
+
+  Use quotes (" ") if command contains flags (-h / --help)
+endef
+
+export helptext
+
+help:
+	@echo "$$helptext"
 
 dev:
 	@poetry run python manage.py runserver localhost:8000
@@ -50,11 +56,8 @@ tox:
 hook:
 	@poetry run pre-commit install
 
-pre-commit:
+lint:
 	@poetry run pre-commit run --all-files
-
-pre-commit-update:
-	@poetry run pre-commit autoupdate
 
 mypy:
 	@poetry run mypy savestate/
