@@ -6,6 +6,7 @@
 [![GitHub][licence-badge]][licence]
 [![GitHub Last Commit][repo-badge]][repo]
 [![GitHub Issues][issues-badge]][issues]
+[![Downloads][downloads-badge]][pypi]
 [![Python Version][version-badge]][pypi]
 
 ```shell
@@ -66,6 +67,7 @@ Note the [security implications][security] of this!
 [dumbdbm]: https://docs.python.org/3/library/dbm.html#module-dbm.dumb
 
 [coverage-badge]: https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=main
+[downloads-badge]: https://img.shields.io/pypi/dm/savestate
 [status-badge]: https://img.shields.io/github/actions/workflow/status/MrThearMan/savestate/test.yml?branch=main
 [pypi-badge]: https://img.shields.io/pypi/v/savestate
 [licence-badge]: https://img.shields.io/github/license/MrThearMan/savestate
