@@ -223,7 +223,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
     def get(self, key: Any, default: Any = None) -> Any:
         """Get value for key in savestate."""
-        return self[key] if key in self else default
+        return self[key] if key in self else default  # noqa: SIM401, RUF100
 
     def _iter_file_data(self, filename: Path) -> Generator[Tuple[bytes, int, int], None, None]:
         """
