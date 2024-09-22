@@ -9,6 +9,8 @@ Data:⠀⠀⠀<key_size: 4 bytes> <val_size: 4 bytes> <key: 'key_size' bytes> <v
 
 """
 
+from __future__ import annotations
+
 import builtins
 import mmap
 import ntpath
@@ -20,28 +22,16 @@ import uuid
 import warnings
 from binascii import crc32
 from pathlib import Path
-from types import TracebackType
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    Iterator,
-    List,
-    Literal,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Reversible,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Generator, Iterator, Literal, Mapping, MutableMapping, Optional, Reversible
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 __all__ = [
-    "open",
+    "SaveStateChecksumError",
     "SaveStateError",
     "SaveStateLoadError",
-    "SaveStateChecksumError",
+    "open",
 ]
 
 
@@ -116,7 +106,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
         self._data_flags = DATA_OPEN_FLAGS_READONLY
         self._verify_checksums = verify_checksums
 
-        self._index: Dict[bytes, Tuple[int, int]] = self._load_index(self._savestate_name)
+        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._savestate_name)
         """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
@@ -177,7 +167,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> bool:
@@ -209,15 +199,15 @@ class _SaveStateReadOnly(Mapping, Reversible):
         # Should be deleted to indicate file is closed to __del__
         delattr(self, "_data_file_descriptor")
 
-    def keys(self) -> List[Any]:
+    def keys(self) -> list[Any]:
         """Return all the keys in the savestate."""
         return [self._convert_from_bytes(key) for key in self._index]
 
-    def values(self) -> List[Any]:
+    def values(self) -> list[Any]:
         """Return all the values in the savestate."""
         return [self[self._convert_from_bytes(key)] for key in self._index]
 
-    def items(self) -> List[Tuple[Any, Any]]:
+    def items(self) -> list[tuple[Any, Any]]:
         """Return List of key value pairs."""
         return [(self._convert_from_bytes(key), self[self._convert_from_bytes(key)]) for key in self._index]
 
@@ -225,7 +215,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
         """Get value for key in savestate."""
         return self[key] if key in self else default  # noqa: SIM401, RUF100
 
-    def _iter_file_data(self, filename: Path) -> Generator[Tuple[bytes, int, int], None, None]:
+    def _iter_file_data(self, filename: Path) -> Generator[tuple[bytes, int, int], None, None]:
         """
         Iterate over the stored data.
 
@@ -308,7 +298,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
             with builtins.open(filename, "ab+") as f:
                 f.write(b"\x00" * missing_bytes)
 
-    def _load_index(self, filename: Path) -> Dict[bytes, Tuple[int, int]]:
+    def _load_index(self, filename: Path) -> dict[bytes, tuple[int, int]]:
         """This method is only used upon instantiation to populate the in memory index."""
         index = {}
 
@@ -400,7 +390,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         self._data_flags = DATA_OPEN_FLAGS
         self._verify_checksums = verify_checksums
 
-        self._index: Dict[bytes, Tuple[int, int]] = self._load_index(self._savestate_name)
+        self._index: dict[bytes, tuple[int, int]] = self._load_index(self._savestate_name)
         """The in memory index. Index 'key' is the name of the stored value in bytes and index 'value' is a Tuple
         of the offset in bytes in the file to the stored value, and the size of the stored value in bytes."""
 
@@ -519,7 +509,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         self._rename(from_file=new_savestate._savestate_name, to_file=self._savestate_name)
 
         # Open the new file as the current file.
-        self._index: Dict[bytes, Tuple[int, int]] = new_savestate._index
+        self._index: dict[bytes, tuple[int, int]] = new_savestate._index
         self._data_file_descriptor: int = os.open(self._savestate_name, self._data_flags)
         self._current_offset: int = new_savestate._current_offset
 
@@ -562,7 +552,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         else:
             return value
 
-    def popitem(self) -> Tuple[Any, Any]:
+    def popitem(self) -> tuple[Any, Any]:
         """
         Get last inserted key value pair.
 
@@ -574,7 +564,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         value = self.pop(key)
         return key, value
 
-    def copy(self, new_filename: Path) -> Union["_SaveStateCreate", "_SaveStateReadWrite", "_SaveStateNew"]:
+    def copy(self, new_filename: Path) -> _SaveStateCreate | _SaveStateReadWrite | _SaveStateNew:
         """Creates a copy of this savestate by writing all the keys from this savestate to the new savestate."""
         new_filename = _add_file_identifier(new_filename)
         assert new_filename != self._savestate_name, "Copy can't have the same filename as the original."  # noqa: S101
@@ -629,13 +619,13 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         with builtins.open(filename, "wb") as f:
             f.write(struct.pack(HEADER_FORMAT, FILE_IDENTIFIER, FILE_FORMAT_VERSION, PICKLE_PROTOCOL))
 
-    def _load_index(self, filename: Path) -> Dict[bytes, Tuple[int, int]]:
+    def _load_index(self, filename: Path) -> dict[bytes, tuple[int, int]]:
         """This method is only used upon instantiation to populate the in memory index."""
         if not os.path.isfile(filename):  # noqa: PTH113
             self._write_headers(filename)
             return {}
 
-        return super(_SaveStateCreate, self)._load_index(filename)
+        return super()._load_index(filename)
 
 
 class _SaveStateReadWrite(_SaveStateCreate):
@@ -742,12 +732,12 @@ def _add_file_identifier(filename: Path) -> Path:
 
 
 def open(  # noqa: A001
-    filename: Union[str, Path],
+    filename: str | Path,
     flag: Literal["r", "w", "c", "n"] = "r",
     verify_checksums: bool = False,
     compact: bool = False,
     dbm_mode: bool = False,
-) -> Union[_SaveStateReadOnly, _SaveStateCreate, _SaveStateReadWrite, _SaveStateNew]:
+) -> _SaveStateReadOnly | _SaveStateCreate | _SaveStateReadWrite | _SaveStateNew:
     """
     Open a Savestate file.
 

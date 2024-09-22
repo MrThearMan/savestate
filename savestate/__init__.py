@@ -3,8 +3,8 @@
 from .savestate import SaveStateChecksumError, SaveStateError, SaveStateLoadError, open
 
 __all__ = [
-    "open",
+    "SaveStateChecksumError",
     "SaveStateError",
     "SaveStateLoadError",
-    "SaveStateChecksumError",
+    "open",
 ]
