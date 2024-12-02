@@ -21,8 +21,9 @@ import sys
 import uuid
 import warnings
 from binascii import crc32
+from collections.abc import Generator, Iterator, Mapping, MutableMapping, Reversible
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Iterator, Literal, Mapping, MutableMapping, Optional, Reversible
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 if TYPE_CHECKING:
     from types import TracebackType
