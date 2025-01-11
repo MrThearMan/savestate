@@ -250,8 +250,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
                         )
                         if key_size == 0:
                             warnings.warn(
-                                f"Zero key size at position {offset}/{len(contents)}. "
-                                f"Could not continue to read data.",
+                                f"Zero key size at position {offset}/{len(contents)}. Could not continue to read data.",
                                 category=BytesWarning,
                                 stacklevel=2,
                             )

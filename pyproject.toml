@@ -1,17 +1,12 @@
-[tool.poetry]
+[project]
 name = "savestate"
 version = "0.1.2"
 description = "Persistent storage of arbitrary python objects"
 authors = [
-    "Matti Lamppu <lamppu.matti.akseli@gmail.com>",
-]
-packages = [
-    { include = "savestate" },
+    { name = "Matti Lamppu", email = "lamppu.matti.akseli@gmail.com" },
 ]
 license = "MIT"
 readme = "README.md"
-homepage = "https://mrthearman.github.io/savestate/"
-repository = "https://github.com/MrThearMan/savestate"
 keywords = [
     "savestate",
 ]
@@ -27,19 +22,24 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-include = [
-    "README.md",
-    "LICENSE",
-]
-exclude = [
-    "tests",
+requires-python = ">=3.10,<4"
+dynamic = [
+    "dependencies",
 ]
 
-[tool.poetry.urls]
+[project.urls]
+"Homepage" = "https://mrthearman.github.io/savestate"
+"Repository" = "https://github.com/MrThearMan/savestate"
 "Bug Tracker" = "https://github.com/MrThearMan/savestate/issues"
+"Documentation" = "https://mrthearman.github.io/savestate"
+
+[tool.poetry]
+requires-poetry = ">=2.0.0"
+packages = [
+    { include = "savestate" },
+]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4"
 
 [tool.poetry.group.test.dependencies]
 pytest = "8.3.4"
@@ -53,7 +53,6 @@ pymdown-extensions = "10.13"
 mkdocs-mermaid2-plugin = "1.2.1"
 
 [tool.poetry.group.lint.dependencies]
-mypy = "1.14.1"
 pre-commit = "4.0.1"
 
 [tool.ruff]
@@ -136,10 +135,9 @@ lint.extend-select = [
     "UP042",    # replace-str-enum
 ]
 lint.ignore = [
+    "A005",     # Allow shadowing builtin modules
     "FBT001",   # Boolean positional argument in function definition
     "FBT002",   # Boolean positional argument in method definition
-    "ANN101",   # Missing type annotation for `self` in method
-    "ANN102",   # Missing type annotation for `cls` in method
     "ANN401",   # Any-typing allowed
     "ARG002",   # Unused method argument
     "ARG003",   # Unused class method argument
@@ -225,11 +223,6 @@ banned-from = [
 [tool.ruff.lint.pylint]
 max-args = 7
 
-[tool.mypy]
-python_version = "3.13"
-warn_return_any = "True"
-warn_unused_configs = "True"
-
 [tool.coverage.run]
 relative_files = true
 
@@ -244,6 +237,7 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "except ImportError:",
     "pragma: no cover",
+    "pass",
 ]
 
 [tool.tox]
@@ -266,9 +260,9 @@ setenv =
     PYTHONPATH = {toxinidir}
 commands =
     poetry install
-    poetry run coverage run -m pytest -vv -s --log-cli-level=INFO
+    poetry run coverage run -m pytest --disable-warnings
 """
 
 [build-system]
-requires = ["poetry-core>=1.7.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
