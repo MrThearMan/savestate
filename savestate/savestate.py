@@ -23,7 +23,7 @@ import warnings
 from binascii import crc32
 from collections.abc import Generator, Iterator, Mapping, MutableMapping, Reversible
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -168,9 +168,9 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> bool:
         self.close()
         return False
