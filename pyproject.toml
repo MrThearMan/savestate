@@ -43,13 +43,13 @@ packages = [
 
 [tool.poetry.group.test.dependencies]
 pytest = "8.4.1"
-coverage = "7.9.2"
-tox = "4.27.0"
+coverage = "7.10.2"
+tox = "4.28.4"
 tox-gh-actions = "3.3.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "1.6.1"
-pymdown-extensions = "10.16"
+pymdown-extensions = "10.16.1"
 mkdocs-mermaid2-plugin = "1.2.1"
 
 [tool.poetry.group.lint.dependencies]
