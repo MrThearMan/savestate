@@ -23,7 +23,7 @@ import warnings
 from binascii import crc32
 from collections.abc import Generator, Iterator, Mapping, MutableMapping, Reversible
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -168,9 +168,9 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> bool:
         self.close()
         return False
@@ -233,7 +233,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
 
         :raises SaveStateError: Something wrong with the file contents.
         """
-        with builtins.open(filename, "rb") as f:
+        with builtins.open(filename, "rb") as f:  # noqa: PTH123
             self._verify_header(header=f.read(HEADER_SIZE))
 
             offset: int = HEADER_SIZE
@@ -295,7 +295,7 @@ class _SaveStateReadOnly(Mapping, Reversible):
         # If file doesn't have enough bytes, fill with blank data to
         # recover from errors that would arise when writing more data to the file.
         if missing_bytes > 0:
-            with builtins.open(filename, "ab+") as f:
+            with builtins.open(filename, "ab+") as f:  # noqa: PTH123
                 f.write(b"\x00" * missing_bytes)
 
     def _load_index(self, filename: Path) -> dict[bytes, tuple[int, int]]:
@@ -598,8 +598,8 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
         :raises OSError: File can't be renamed. Possibly being used by another process.
         """
         if sys.platform.startswith("win"):  # pragma: no cover
-            import ctypes
-            from ctypes.wintypes import DWORD, LPVOID
+            import ctypes  # noqa: PLC0415
+            from ctypes.wintypes import DWORD, LPVOID  # noqa: PLC0415
 
             lpct_str = ctypes.c_wchar_p
             kernel32 = ctypes.windll.kernel32
@@ -616,7 +616,7 @@ class _SaveStateCreate(MutableMapping, _SaveStateReadOnly):
     @staticmethod
     def _write_headers(filename: Path) -> None:
         """Write the header onto the file."""
-        with builtins.open(filename, "wb") as f:
+        with builtins.open(filename, "wb") as f:  # noqa: PTH123
             f.write(struct.pack(HEADER_FORMAT, FILE_IDENTIFIER, FILE_FORMAT_VERSION, PICKLE_PROTOCOL))
 
     def _load_index(self, filename: Path) -> dict[bytes, tuple[int, int]]:
