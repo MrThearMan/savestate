@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="None" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>Savestate</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="css/docs.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Home";
+        var mkdocs_page_input_path = "index.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/console.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="." class="icon icon-home"> Savestate
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Home</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#implementation-details">Implementation details</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#performance">Performance</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="quick/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="docs/">Documentation</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href=".">Savestate</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Home</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="savestate">SaveState</h1>
+<p><a href="https://coveralls.io/github/MrThearMan/savestate?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/MrThearMan/savestate/badge.svg?branch=master" /></a>
+<a href="https://github.com/MrThearMan/savestate/actions/workflows/test.yml"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/MrThearMan/savestate/test.yml?branch=main" /></a>
+<a href="https://pypi.org/project/savestate"><img alt="PyPI" src="https://img.shields.io/pypi/v/savestate" /></a>
+<a href="https://github.com/MrThearMan/savestate/blob/master/LICENSE"><img alt="GitHub" src="https://img.shields.io/github/license/MrThearMan/savestate" /></a>
+<a href="https://github.com/MrThearMan/savestate/commits/master"><img alt="GitHub Last Commit" src="https://img.shields.io/github/last-commit/MrThearMan/savestate" /></a>
+<a href="https://github.com/MrThearMan/savestate/issues"><img alt="GitHub Issues" src="https://img.shields.io/github/issues-raw/MrThearMan/savestate" /></a>
+<a href="https://pypi.org/project/savestate"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/savestate" /></a></p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>savestate
+</code></pre></div>
+<hr />
+<p><strong>Documentation</strong>: <a href="https://mrthearman.github.io/savestate/">https://mrthearman.github.io/savestate/</a></p>
+<p><strong>Source Code</strong>: <a href="https://github.com/MrThearMan/savestate/">https://github.com/MrThearMan/savestate/</a></p>
+<p><strong>Contributing</strong>: <a href="https://github.com/MrThearMan/savestate/blob/main/CONTRIBUTING.md">https://github.com/MrThearMan/savestate/blob/main/CONTRIBUTING.md</a></p>
+<hr />
+<p>SaveState is a cross-platform fast file storage for arbitrary python objects.
+It's similar to python's builtin <a href="https://docs.python.org/3/library/shelve.html">shelve</a> module, but aims to be more
+performant on Windows while being cross-platform compatible.</p>
+<p>Savestate is inspired by <a href="https://github.com/quora/semidbm2">semidbm2</a>, with a more modern interface.
+mapping-like functions, a context manager, and support for
+arbitrary python objects.</p>
+<h2 id="implementation-details">Implementation details</h2>
+<ul>
+<li>Pure python</li>
+<li>No requirements or dependencies</li>
+<li>A dict-like interface (no unions)</li>
+<li>Same, single file on Windows and Linux (unlike shelve)</li>
+<li>Key and value integrity can be evaluated with a checksum, which will detect data corruption on key access.</li>
+<li>Recovery from missing bytes at the end of the file, or small amounts of corrupted data in the middle</li>
+<li>Both values AND keys put in savestate must support <a href="https://docs.python.org/3/library/pickle.html#module-pickle">pickling</a>.
+Note the <a href="https://docs.python.org/3/library/pickle.html#module-pickle">security implications</a> of this!</li>
+<li>This means that you can use arbitrary objects as keys if they support pickle (unlike shelve)</li>
+<li>All the keys of the savestate are kept in memory, which limits the savestate size (not a problem for most applications)</li>
+<li>NOT Thread safe, so cannot be accessed by multiple processes</li>
+<li>File is append-only, so the more non-read operations you do, the more the file size is going to balloon</li>
+<li>However, you can <em>compact</em> the savestate, usually on <em>savestate.close()</em>, which will replace the savestate with a new file with only the current non-deleted data.
+  This will impact performance a little, but not by much</li>
+</ul>
+<h2 id="performance">Performance</h2>
+<ul>
+<li>About 50-60% of the performance of shelve with <a href="https://docs.python.org/3/library/dbm.html#module-dbm.gnu">gdbm</a> (linux),
+  but &gt;5000% compared to shelve with <a href="https://docs.python.org/3/library/dbm.html#module-dbm.dumb">dumbdbm</a> (windows) (&gt;20000% for deletes!)</li>
+<li>Performance is more favorable with large keys and values when compared to gdbm,
+    but gdbm is still faster on subsequent reads/writes thanks to its caching</li>
+<li>A dbm-mode for about double the speed of regular mode, but only string-type keys and values</li>
+<li>This is about 25-30% of the performance of gdbm on its own.</li>
+<li>Note: Values will be returned in bytes form!</li>
+</ul>
+<blockquote>
+<p>Source code includes a benchmark that you can run to get more accurate performance on your specific machine.</p>
+</blockquote>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="quick/" class="btn btn-neutral float-right" title="Quickstart">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+      <span><a href="quick/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2025-09-08 17:08:49.302777+00:00
+-->

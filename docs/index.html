@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Documentation - Savestate</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../css/docs.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Documentation";
+        var mkdocs_page_input_path = "docs.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/console.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Savestate
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quick/">Quickstart</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Documentation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#savestateopen">savestate.open(...)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#read-only-mode">'Read-Only' mode</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#read-write-create-and-new-modes">'Read-Write', 'Create' and 'New' modes</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Savestate</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Documentation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="documentation">Documentation</h1>
+<h4 id="savestateopen">savestate.open(...)</h4>
+<ul>
+<li><strong>filename</strong>: str - The name of the savestate. Will have the '.savestate' file extension added to it if it doesn't have it.</li>
+<li><strong>flag</strong>: Literal["r", "w", "c", "n"] - Specifies how the savestate should be opened.<ul>
+<li>"r" = Open existing savestate for reading only <em>(default)</em>.</li>
+<li>"w" = Open existing savestate for reading and writing.</li>
+<li>"c" = Open savestate for reading and writing, creating it if it does not exist.</li>
+<li>"n" = Always create a new, empty savestate, open for reading and writing.</li>
+</ul>
+</li>
+<li><strong>verify_checksum</strong>: bool - Verify that the checksum for a key and value pair is correct on every <code>__getitem__</code> call</li>
+<li><strong>compact</strong>: bool - Indicate whether to compact the savestate before closing it. No effect in read only mode.</li>
+<li><strong>dbm_mode</strong>: bool - Operate in dbm mode. This is faster, but only allows strings for keys and values.</li>
+</ul>
+<h4 id="read-only-mode">'Read-Only' mode</h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Magic methods</span>
+<span class="n">savestate</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="n">key</span> <span class="ow">in</span> <span class="n">savestate</span>
+<span class="nb">len</span><span class="p">(</span><span class="n">savestate</span><span class="p">)</span>
+<span class="nb">iter</span><span class="p">(</span><span class="n">savestate</span><span class="p">)</span>
+<span class="nb">reversed</span><span class="p">(</span><span class="n">savestate</span><span class="p">)</span>
+<span class="nb">str</span><span class="p">(</span><span class="n">savestate</span><span class="p">)</span>
+<span class="nb">repr</span><span class="p">(</span><span class="n">savestate</span><span class="p">)</span>
+
+<span class="c1"># Properties</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">filepath</span>  <span class="c1"># absolute path (&amp; filename)</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">filename</span>  <span class="c1"># filename (&amp; extension)</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">isopen</span>
+
+<span class="c1"># Mapping-like methods</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Special methods</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="c1">### Closes the savestate. Accessing keys after this</span>
+<span class="c1">### will cause an AttributeError.</span>
+</code></pre></div>
+<h4 id="read-write-create-and-new-modes">'Read-Write', 'Create' and 'New' modes</h4>
+<ul>
+<li>Extend read-only mode with these methods</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># Magic methods</span>
+<span class="n">savestate</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+<span class="k">del</span> <span class="n">savestate</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+<span class="c1"># Mapping-like methods</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">popitem</span><span class="p">()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">new_filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span>
+<span class="c1">### AssertionError if new filename is same as current one.</span>
+<span class="c1">### THIS WILL OVERWRITE ANY FILES WITH THE GIVEN FILENAME!</span>
+<span class="c1">### Note: new filename will have &#39;.savestate&#39; added to it,</span>
+<span class="c1">### if it doesn&#39;t have it</span>
+
+<span class="c1"># Special methods</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+<span class="c1">### Flushes existing data buffers and ensures that data</span>
+<span class="c1">### is written to the disk. Always called on savestate.close()</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">compact</span><span class="p">()</span>
+<span class="c1">### Rewrite the contents of the files, which will</span>
+<span class="c1">### reduce the size of the file due to implementation details</span>
+<span class="n">savestate</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">compact</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<span class="c1">### Setting compact=True will compact the savestate</span>
+<span class="c1">### even if it was not set so at savestate.open()</span>
+</code></pre></div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../quick/" class="btn btn-neutral float-left" title="Quickstart"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../quick/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
