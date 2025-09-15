@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 import re
+import tomllib
 from functools import cache
 from pathlib import Path
 
 import nox
-import tomllib
 
 logger = logging.getLogger(__name__)
 
