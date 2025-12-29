@@ -42,7 +42,7 @@ packages = [
 
 [tool.poetry.group.test.dependencies]
 pytest = "9.0.2"
-coverage = "7.13.0"
+coverage = "7.13.1"
 nox = "2025.11.12"
 
 [tool.poetry.group.docs.dependencies]
@@ -51,7 +51,7 @@ pymdown-extensions = "10.19.1"
 mkdocs-mermaid2-plugin = "1.2.3"
 
 [tool.poetry.group.lint.dependencies]
-pre-commit = "4.5.0"
+pre-commit = "4.5.1"
 
 [tool.ruff]
 fix = true
