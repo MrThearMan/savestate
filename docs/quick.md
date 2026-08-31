@@ -11,7 +11,7 @@ state = savestate.open("savestate", "c")
 state["foo"] = "bar"
 
 # Get data from savestate
-state["foo"]   # -> bar
+state["foo"]  # -> bar
 
 # Delete data from savestate
 del state["foo"]
@@ -23,7 +23,7 @@ state.close()
 ## Use as a context manager:
 
 ```python
-with savestate.open("filename.savestate", "c") as state:  
-    state["foo"] = "baz"  
+with savestate.open("filename.savestate", "c") as state:
+    state["foo"] = "baz"
     ...
 ```
