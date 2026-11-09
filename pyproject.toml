@@ -43,7 +43,7 @@ packages = [
 
 [tool.poetry.group.test.dependencies]
 pytest = "9.2.0"
-coverage = "7.17.0"
+coverage = "7.17.2"
 nox = "2026.10.20"
 
 [tool.poetry.group.docs.dependencies]
